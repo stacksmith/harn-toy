@@ -33,25 +33,7 @@ static char* str_SHT[]= {
   "SYMTAB_SHNDX "		/* Extended section indices */
 };
 #include <ctype.h>
-void* hd_line(void* ptr){
-  U8*p=(U8*)ptr;
-  printf("%p ",p);
-  for(int i=0;i<16;i++){
-    printf("%02X ",p[i]);
-  }
-  for(int i=0;i<16;i++){
-    printf("%c",isprint(p[i])?p[i]:128);
-  }
-  printf("\n");
-  return(p+16);
-}
 
-void* hd(void*ptr,int lines){
-  for(int i=0;i<lines;i++){
-    ptr = hd_line(ptr);
-  }
-  return ptr;
-}
 
 extern U8* buf;
 extern Elf64_Ehdr* ehdr;

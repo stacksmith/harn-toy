@@ -5,13 +5,13 @@
 #include <string.h>
 #include <elf.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
 #include "global.h"
+#include "hexdump.h"
 #include "elfdump.h"
 #include "seg.h"
 U8* buf;

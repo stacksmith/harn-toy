@@ -8,4 +8,4 @@ void secheads_dump();
 
 char* get_str(Elf64_Shdr* sh_str,int idx);
 
-U8* hd(U8*p,U32 l);
+
