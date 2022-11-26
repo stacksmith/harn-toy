@@ -158,6 +158,7 @@ int main(int argc, char **argv){
   seg_dump(&seg_code);
   seg_dump(&seg_data);
   
+  
   /*
   U8* p = ingest_section(1);
   hd(p,8);
@@ -172,7 +173,7 @@ int main(int argc, char **argv){
   //hd(buf + sh_symtab->sh_offset,8);
 
 
-  //  secheads_dump();
+    secheads_dump();
 
   //find .text
   printf("OK\n");

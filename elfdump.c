@@ -134,7 +134,7 @@ void secheads_dump(){
   }
 }
 
-void symtab_dump(){
+void symtab_dump(Elf64_Shdr* sh_symtab){
   printf("Symbol table at %ld, size %ld\n",sh_symtab->sh_offset,sh_symtab->sh_size);
   int sym_num = (int)sh_symtab->sh_size / sh_symtab->sh_entsize; //sizeof(Elf64_Sym);
   printf("entries: %d\n",sym_num);
@@ -183,7 +183,7 @@ void reltab_dump(U32 rtab_isec){
 void elf_dump(){
   //  printf("%d sections\n",ehdr->e_shnum);
   secheads_dump();
-  symtab_dump();
+  symtab_dump(sh_symtab);
 
 }
 
