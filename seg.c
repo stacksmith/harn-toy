@@ -37,7 +37,8 @@ void seg_dump(sSeg* pseg){
 
 ---------------------------------------------------------------*/
 int seg_alloc(sSeg* pseg,char*name,U64 req_size, void* req_addr, U32 prot){
-  pseg->base =mmap(req_addr,req_size,
+  pseg->base =mmap(req_addr,
+		   req_size,
 		  prot,
 		  //MAP_ANONYMOUS|
 		  0x20|  MAP_SHARED|MAP_FIXED,
@@ -74,5 +75,13 @@ U8* seg_append(sSeg* pseg,U8* start,U64 size){
       memset(dest,0,size);
   } 
   return dest;
+}
+
+void seg_align(sSeg*pseg, U64 align){
+  int rem  = ((U64)pseg->fillptr % align);
+  if(rem) {
+    seg_append(pseg,0,align-rem);
+    printf("Inserted pad of %ld bytes\n",align-rem);
+  }  
 }
 

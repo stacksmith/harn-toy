@@ -12,55 +12,16 @@
 
 #include "global.h"
 #include "hexdump.h"
+#include "elf.h"
 #include "elfdump.h"
 #include "seg.h"
-U8* buf;
-Elf64_Ehdr* ehdr;
-Elf64_Shdr* shdr  ;      // array of section headers
-Elf64_Shdr* sh_shstrtab; // strings for section headers
-Elf64_Shdr* sh_symtab;   // one and only symbol table
+#include "unit.h"
 
-/* -------------------------------------------------------------
-   elf_load   Load an ELF object file (via mapping)
- -------------------------------------------------------------*/
-U32 elf_load(char* path){
-  int fd = open(path, O_RDONLY);
-  if(fd<0) {
-    printf("Error opening %s\n",path);
-    return 0;
-  }
-  off_t len = lseek(fd, 0, SEEK_END);
-  if(fd<0){
-    printf("Error seeking end\n");
-    return 0;
-  }
-  buf = (U8*)mmap(0, len, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
-  if(!buf) {
-    printf("Error mapping'ing %ld bytes\n",len);
-    return 0;
-  }
-  close(fd);
-  return len;
-}
+sElf* pelf;
+sSeg scode;
+sSeg sdata;
 
-/* -------------------------------------------------------------
-   sh_symtab_set   find the symbol table 
-
- Elf spec says there is only one.
- -------------------------------------------------------------*/
-Elf64_Shdr* sh_symtab_find(){
-  for(int i=0;i<ehdr->e_shnum;i++){
-    if(shdr[i].sh_type == SHT_SYMTAB){
-      return &shdr[i];
-    }
-  }
-  return 0;
-}
-
-
-/* -------------------------------------------------------------
-seg_from_section  Append data from an ELF section
----------------------------------------------------------------*/
+/*
 void seg_from_section(sSeg* pseg,Elf64_Shdr* psec){
   U32 align = (U32)psec->sh_addralign;
   int rem  = ((U64)pseg->fillptr % align);
@@ -74,12 +35,10 @@ void seg_from_section(sSeg* pseg,Elf64_Shdr* psec){
   psec->sh_addr = (Elf64_Addr)dest;
 }
 
-sSeg seg_code;
-sSeg seg_data;
 
 void apply_rel(U8* code,U32 ri){
   Elf64_Shdr* psh = &shdr[ri];
-  Elf64_Shdr* pshstr = &shdr[sh_symtab->sh_link]; //sh of strings
+   Elf64_Shdr* pshstr = &shdr[sh_symtab->sh_link]; //sh of strings
   Elf64_Sym*  syms = (Elf64_Sym*)(buf + sh_symtab->sh_offset);
   Elf64_Rela* prel = (Elf64_Rela*) (buf + psh->sh_offset);
   int cnt = psh->sh_size / psh->sh_entsize;
@@ -103,82 +62,100 @@ void apply_rel(U8* code,U32 ri){
     }
   }
 }
+*/
 
-int main(int argc, char **argv){
-  U32 len = elf_load(argv[1]);
-  if(!len)
-    exit(1);
-  
-  ehdr = (Elf64_Ehdr*)buf;
-  printf("Loaded %s (%d bytes)\n",argv[1],len);
-   
-  if(ehdr->e_type==ET_REL){
-    printf("Relocatable file\n");
-  } else {
-    fprintf(stderr,"Not a relocatable object file\n");
-    exit(1);
-  }
+/* Process symbols, converting section offsets to addresses 
+ * UNDEF symbols must be resolved by the system to another unit...
+*/
 
-  shdr = (Elf64_Shdr*)(buf+ehdr->e_shoff); //array of shdrs
-  sh_shstrtab = &shdr[ehdr->e_shstrndx];
-  sh_symtab = sh_symtab_find();
-  if(!sh_symtab){
-    fprintf(stderr,"Error locating symbol table\n");
-    exit(1);
-  }
 
-  elf_dump();
-
-  seg_alloc(&seg_code,".CODE.",0x100000,(void*)0x80000000,
-	    PROT_READ|PROT_WRITE|PROT_EXEC);
-  seg_alloc(&seg_data,".DATA.",0x100000,(void*)0x90000000,
-	    PROT_READ|PROT_WRITE);
-
-  /* Each loadable section gets copied into code/data segment;
-     its segment address is written into the ELF section header */
-  printf("\nprocessing segments\n");
-  // find all PROGBITS sections
-  for(int i=0;i<ehdr->e_shnum;i++) {
-    Elf64_Shdr* psh = &shdr[i];
-    if((psh->sh_flags & SHF_ALLOC) // allocation requested
-       && (psh->sh_size)           // >0 size
-       && (psh->sh_type == SHT_PROGBITS)
-       && (strcmp(".eh_frame",get_str(sh_shstrtab,psh->sh_name)))
-       ){
-      if(psh->sh_flags & SHF_EXECINSTR){ // code
-	printf("exec--");
-	seg_from_section(&seg_code,psh);
-      } else { //data
-	printf("data--");
-	seg_from_section(&seg_data,psh);
+void syms(sElf* pelf){
+  Elf64_Sym* psym = pelf->psym+1;
+  for(U32 i=1;i<pelf->symnum;i++,psym++){
+    char* pname = ELF_SYM_NAME(pelf,psym);
+    U32 hash = fnv1a(pname);
+    printf("Symbol %s: %08X\n",pname,hash);
+    
+    U32 shi = psym->st_shndx; // get section we are referring to
+    if(shi){
+      if(shi < 0xFF00){
+	psym->st_value += pelf->shdr[shi].sh_addr;
+	sym_dump(pelf,psym);
       }
-      sechead_dump(psh);
+    } else {
+      printf("UNDEFINED SYMBOL\n");
+      sym_dump(pelf,psym);
+      exit(1);
     }
   }
-  seg_dump(&seg_code);
-  seg_dump(&seg_data);
+}
+
+void process_rel_section(sElf* pelf, Elf64_Shdr* shrel){
+  U32 relnum = shrel->sh_size / shrel->sh_entsize;
+  Elf64_Rela* prel = (Elf64_Rela*)(pelf->buf + shrel->sh_offset);
+  // applying relocations to this section
+  Elf64_Shdr* shto = &pelf->shdr[shrel->sh_info];
+  U64 base = shto->sh_addr;
+  printf("Applying relocations against %lX, %ld\n",base,shto->sh_size);
+  for(U32 i=0; i<relnum; i++,prel++){
+    U64 p = base + prel->r_offset;
+    Elf64_Sym* psym = &pelf->psym[ELF64_R_SYM(prel->r_info)];
+    U64 s = psym->st_value;
+    U64 a = prel->r_addend;
+    U32 fixup = (U32)(s+a-p);
+    *((U32*)p) = fixup;
+    rel_dump(pelf,prel);
+    printf("Fixup: P:%lx A:%ld S:%lx S+A-P: %08x\n",p,a,s,fixup);        
+    
+   
+  }
+    
+}
+
+void rels(sElf* pelf){
+  printf("Rel sections:\n");
+  Elf64_Shdr* shdr = pelf->shdr;  
+  for(U32 i=0; i< pelf->shnum; i++,shdr++){
+    if(SHT_RELA == shdr->sh_type){
+  sechead_dump(pelf,i);
+      process_rel_section(pelf,shdr);
+    }
+  }
+}  
+
+
+typedef int (*fptr)(int,int);
+
+int main(int argc, char **argv){
+  pelf = (sElf*)malloc(sizeof(sElf));
+  seg_alloc(&scode,"SCODE",0x10000000,(void*)0x80000000,
+	    PROT_READ|PROT_WRITE|PROT_EXEC);
+  seg_alloc(&sdata,"SDATA",0x10000000,(void*)0x40000000,
+	    PROT_READ|PROT_WRITE);
+
+
   
+  U32 ret = elf_load(pelf,argv[1]);
+  printf("Loaded %s (%d bytes)\n",argv[1],ret);
+   elf_dump(pelf);
+
+   sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
+   unit_ingest(pu,pelf);
+  // reltab_dump(pelf,2);
+  seg_dump(&scode); seg_dump(&sdata);
+  syms(pelf);
+  rels(pelf);
+
+symtab_dump(pelf);
   
-  /*
-  U8* p = ingest_section(1);
-  hd(p,8);
-  apply_rel(code,2); 
-  hd(p,8);
 
-  fptr f = (fptr)(p+0x16);
-  U32 res = (*f)(1,2);
-  printf("Result is %d\n",res);
-  */
-  //  hd(buf + shdr[sh_symtab->sh_link].sh_offset, 8);
-  //hd(buf + sh_symtab->sh_offset,8);
+/*
+  fptr bar;
+  bar = (fptr)(0x80000016);
+  U32 result=0;
+    result = (*bar)(1,2);
+  printf("result: %d\n",result);
 
-
-    secheads_dump();
-
-  //find .text
-  printf("OK\n");
-  // reltab_dump(2);
-
-  
+*/
   return 0;
 }

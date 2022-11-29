@@ -1,11 +1,15 @@
 
-void elf_dump();
-void reltab_dump(U32 i);
-void rel_dump(Elf64_Rela* p);
-void sym_dump(Elf64_Shdr* sh_str,Elf64_Sym* psym);
-void sechead_dump(Elf64_Shdr* psh);
-void secheads_dump();
+char* get_str(sElf* pelf, Elf64_Shdr* sh_str, int idx);
+void sechead_dump(sElf* pelf, U32 sh_idx);
+void secheads_dump(sElf* pelf);
 
-char* get_str(Elf64_Shdr* sh_str,int idx);
+void reltab_dump(sElf*pelf,U32 isec);
+void rel_dump(sElf*pelf,Elf64_Rela* p);
+
+void sym_dump(sElf*pelf,Elf64_Sym* psym);
+void symtab_dump(sElf*pelf);
 
 
+
+void elf_dump(sElf* pelf);
+ 

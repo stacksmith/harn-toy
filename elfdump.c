@@ -12,7 +12,8 @@
 #include <unistd.h>
 
 #include "global.h"
-
+#include "elf.h"
+#include "hexdump.h"
 static char* str_SHT[]= {
   "NULL    ",            /* Section header table entry unused */
   "PROGBITS",/* Program data */
@@ -34,29 +35,23 @@ static char* str_SHT[]= {
 };
 #include <ctype.h>
 
-
-extern U8* buf;
-extern Elf64_Ehdr* ehdr;
-extern Elf64_Shdr* shdr  ;
-extern Elf64_Shdr* sh_shstrtab;
-extern Elf64_Shdr* sh_symtab;
-
-char* get_str(Elf64_Shdr* sh_str,int str_idx){
+char* get_str(sElf* pelf, Elf64_Shdr* sh_str, int str_idx){
   if(str_idx){
     if(str_idx > sh_str->sh_size-1){
       fprintf(stderr,"sym_str: string index too high\n");
       exit(1);
     } 
-    return (char*)(buf + sh_str->sh_offset + str_idx);
+    return (char*)(pelf->buf + sh_str->sh_offset + str_idx);
   }else{
     return "-0-";
   }
 }
 
-char* section_name(U32 idx){
+char* section_name(sElf* pelf,U32 idx){
+  Elf64_Shdr* sh_shstrtab = ELF_SHSTRTAB(pelf);
   if(idx<SHN_LORESERVE){
     if(!idx) return "-UNDEF-";
-    return get_str(sh_shstrtab,shdr[idx].sh_name);
+    return get_str(pelf,sh_shstrtab,pelf->shdr[idx].sh_name);
   } else {
     switch(idx){
     case SHN_ABS: return "-ABS-";
@@ -67,6 +62,31 @@ char* section_name(U32 idx){
   }
 }
 
+void sechead_dump(sElf* pelf, U32 sh_idx){
+  Elf64_Shdr* psh = &pelf->shdr[sh_idx];
+  int sht = psh->sh_type;
+  printf("%08lx %4ld ",psh->sh_addr,psh->sh_size);
+  if(sht<SHT_NUM)
+    printf("%s ",str_SHT[sht]);
+  else
+    printf("shtype %X ",sht);
+  printf("%04lX ",psh->sh_flags);
+  printf("%5ld ",psh->sh_offset);
+  printf("%02ld",psh->sh_addralign);
+  printf(" %s ",section_name(pelf,sh_idx));
+  printf("\n");
+}
+void secheads_dump(sElf* pelf){
+    printf(" #  Address  size sh_type  flag off   al  name\n");
+  // sections
+  for(int i=0;i<pelf->ehdr->e_shnum;i++){
+    printf("%02d: ",i);
+    sechead_dump(pelf,i);
+  }
+}
+//=========================================================================
+// Symbol table
+//
 char* sym_info_bind_str(U32 n){
   switch(ELF64_ST_BIND(n)){
   case 0: return "LOCAL";
@@ -99,52 +119,37 @@ char* sym_other_vis_str(U32 n){
   }
   return 0;
 }
-  
-/* -------------------------------------------------------------*/
-void sym_dump(Elf64_Shdr* sh_str,Elf64_Sym* psym){
-  char* name = get_str(sh_str,psym->st_name);
-  printf("%08lx %04ld ",psym->st_value,psym->st_size);
+
+void sym_dump(sElf* pelf,Elf64_Sym* psym){
+  //  char* name = get_str(pelf, sh_str, psym->st_name);
+  char* name = pelf->str_sym + psym->st_name;
+  printf("%08lX %4lX ",psym->st_value,psym->st_size);
   printf("%s %s %s ",
 	 sym_info_type_str(psym->st_info),
 	 sym_info_bind_str(psym->st_info),
 	 sym_other_vis_str(psym->st_other));
-       
-  printf("%s %d,in section:%s\n",name,(psym->st_shndx),section_name(psym->st_shndx));
+  char* secname = section_name(pelf, psym->st_shndx);
+  int pad = 20-strlen(secname);
+  if(pad<0) pad = 0;
+  printf("%s ",secname);
+  for(int i=0;i<pad;i++) printf(" ");
+  printf("%s\n",name);
   
 }
 
-void sechead_dump(Elf64_Shdr* psh){
-    int sht = psh->sh_type;
-    printf("%08lx %04lx ",psh->sh_addr,psh->sh_size);
-    if(sht<SHT_NUM)
-      printf("%s ",str_SHT[sht]);
-    else
-      printf("shtype %X ",sht);
-    printf("%08lX ",psh->sh_flags);
-    printf("\"%s\" ",get_str(sh_shstrtab,psh->sh_name));
-    printf("\toff: %ld  size: %ld ",psh->sh_offset,psh->sh_size);
-    printf("align: %ld",psh->sh_addralign);
-    printf("\n");
-}
-void secheads_dump(){
-  // sections
-  for(int i=0;i<ehdr->e_shnum;i++){
-    printf("%02d: ",i);
-    sechead_dump(&shdr[i]);
-  }
-}
 
-void symtab_dump(Elf64_Shdr* sh_symtab){
-  printf("Symbol table at %ld, size %ld\n",sh_symtab->sh_offset,sh_symtab->sh_size);
-  int sym_num = (int)sh_symtab->sh_size / sh_symtab->sh_entsize; //sizeof(Elf64_Sym);
-  printf("entries: %d\n",sym_num);
-  printf("Corresponding string table section %d\n",sh_symtab->sh_link);
+void symtab_dump(sElf*pelf){
+  printf("Symbol table at %ld, size %ld\n",pelf->sh_symtab->sh_offset,
+	 pelf->sh_symtab->sh_size);
+  // compute the total count of symbols
+  int sym_cnt = (int)pelf->sh_symtab->sh_size / pelf->sh_symtab->sh_entsize;
+  printf("entries: %d\n",sym_cnt);
+  printf("Corresponding string table section %d\n",pelf->sh_symtab->sh_link);
 
-  Elf64_Shdr* sh_str = &shdr[sh_symtab->sh_link];
-  Elf64_Sym* syms = (Elf64_Sym*)(buf + sh_symtab->sh_offset);
-  for(int i=0;i<sym_num;i++){
-    printf("%d: ",i);
-    sym_dump(sh_str,&syms[i]);
+  Elf64_Sym* syms = pelf->psym;
+  for(int i=0;i<pelf->symnum;i++){
+    printf("%3d: ",i);
+    sym_dump(pelf,&syms[i]);
   }
 }
 char* reltype_str(U32 i){
@@ -160,30 +165,42 @@ char* reltype_str(U32 i){
   }
   return 0;
 }
-void rel_dump(Elf64_Rela* p){
-  printf("%08lx +%02ld sym:%08lX, type:%s\n",
+
+
+void rel_dump(sElf*pelf,Elf64_Rela* p){
+  // string table for symbols
+  Elf64_Shdr* sh_str = &pelf->shdr[pelf->sh_symtab->sh_link];
+  Elf64_Sym* syms = pelf->psym;
+  char* symname = get_str(pelf,sh_str,syms[ELF64_R_SYM(p->r_info)].st_name);
+  printf("%08lx %s %02ld , type:%s\n",
 	 p->r_offset,
-	 p->r_addend,
-	 ELF64_R_SYM(p->r_info),
+	 symname,
+ 	 p->r_addend,
+
+	 //	 ELF64_R_SYM(p->r_info),
 	 reltype_str((U32)ELF64_R_TYPE(p->r_info))
 	 );
 }
-void reltab_dump(U32 rtab_isec){
-  Elf64_Shdr* sh_reltab = &shdr[rtab_isec];
-  Elf64_Rela*  reltab = (Elf64_Rela*) (buf + sh_reltab->sh_offset);
+void reltab_dump(sElf* pelf,U32 rtab_isec){
+  Elf64_Shdr* sh_reltab = &pelf->shdr[rtab_isec];
+  Elf64_Rela*  reltab = (Elf64_Rela*) (pelf->buf + sh_reltab->sh_offset);
   U32 cnt = sh_reltab->sh_size / sh_reltab->sh_entsize;
   U32 i_sym_sh = sh_reltab->sh_link;
   U32 i_bin_sh = sh_reltab->sh_info;
+  printf("%d relocations %ld %ld\n",cnt,
+	 sh_reltab->sh_size, sh_reltab->sh_entsize
+	 );
 
   printf("Assoc. symtab idx %d; apply to section %d\n",i_sym_sh,i_bin_sh);
   for(int i=0;i<cnt;i++){
-    rel_dump(&reltab[i]);
+    rel_dump(pelf,&reltab[i]);
   }
 }
-void elf_dump(){
-  //  printf("%d sections\n",ehdr->e_shnum);
-  secheads_dump();
-  symtab_dump(sh_symtab);
+
+void elf_dump(sElf* pelf){
+  secheads_dump(pelf);
+  symtab_dump(pelf);
+ 
 
 }
 
