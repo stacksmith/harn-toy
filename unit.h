@@ -1,6 +1,19 @@
 // symtab.h
 
-/* Symbols are maintained in 
+/* A unit is an occupied range of bytes in code and data segs, along with
+   symbols that describe the data contained within.
+
+   The symbols are optimized for fast searches, and are stored in 3 separate 
+   arrays:
+   * An array of 32-bit hashes for a cache-optimized linear search;
+   * An array of per-symbol structures, with
+   ** position in seg
+   ** type
+   ** string-table offset
+   * A string table containing null-terminated strings;
+
+
+ Symbols are maintained in 
  * A string-list with 0-terminated symbol names;
  * A hash-list with 32-bit hashes of each name;
  * A symdata-list, with matching data:
@@ -22,9 +35,22 @@ typedef struct sSym {
   };
   U16 ostr;
   U32 off;
+  U32 size;
 } sSym;
 
+/* maybe, fit into a U64:
+  4 flags type,visibility
+ 16 ostr  string table index (64K max)
+ 20 size  1MB max item size
+ 24 off   16MB+1MB max total limit
 
+#define SYM_OTHER 0
+#define SYM_DATA 1
+#define SYM_FUNC 2
+#define SYM_LOCAL  0
+#define SYM_GLOBAL 1
+*/
+  
 typedef struct sUnit {
   // segment data
   U32 oCode;       // code segment offset 
@@ -40,6 +66,7 @@ typedef struct sUnit {
 
   
 void unit_dump(sUnit* pu);
-U32 fnv1a(char*p);
+U32 string_hash(char*p);
 void unit_sections(sUnit*pu,sElf* pelf);
 void unit_symbols(sUnit*pu,sElf* pelf);
+U32 unit_find_hash(sElf*pelf,sUnit*pu,U32 hash);

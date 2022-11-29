@@ -39,4 +39,5 @@ typedef struct sPiece {
 
 
 U32 elf_load(sElf* pelf, char* path);
-sPiece* elf_sec_bounds(sElf*pelf,sPiece*piece,U32 index);
+void elf_syms(sElf* pelf);
+void elf_rels(sElf* pelf);

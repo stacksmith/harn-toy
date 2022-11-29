@@ -24,7 +24,7 @@ void unit_dump(sUnit* pu){
 #define FNV_PRIME 16777619
 #define FNV_OFFSET_BASIS 2166136261
 
-U32 fnv1a(char*p){
+U32 string_hash(char*p){
   U32 hash = FNV_OFFSET_BASIS;
   U8 c;
   while((c=*p++)){
@@ -47,7 +47,7 @@ void unit_sections(sUnit*pu,sElf* pelf){
   pu->oCode = scode.fill;
   pu->oData = sdata.fill;
  
-  printf("Of interest:\n");
+  //printf("Of interest:\n");
   Elf64_Shdr* shdr = pelf->shdr;  
   for(U32 i=0; i< pelf->shnum; i++,shdr++){
     U64 flags = shdr->sh_flags;
@@ -66,6 +66,7 @@ void unit_sections(sUnit*pu,sElf* pelf){
   pu->szCode = scode.fill - pu->oCode;
   pu->szData = sdata.fill - pu->oData;
 }
+// note: 0th symbol is not ingested.
 
 void unit_symbols(sUnit* pu,sElf* pelf){
   //  sSyms* psyms = (sSyms*) malloc(sizeof(psyms));
@@ -83,13 +84,43 @@ void unit_symbols(sUnit* pu,sElf* pelf){
   Elf64_Sym* psym = pelf->psym + pu->nSyms;  // Starting from last symbol
   sSym* pdat   = pu->dats;
   U32*  phash  = pu->hashes;
+  // Convert them to unit offsets.
+  U64 dbase = (U64)sdata.base + pu->oData; // absolute data
+  U64 cbase = (U64)scode.base + pu->oCode;
+  // walk ELF symbol table backwards; 
   for(U32 i=1;i<pelf->symnum;i++,psym--,pdat++,phash++){
-    *phash = fnv1a(strbase + psym->st_name);
+    *phash = string_hash(strbase + psym->st_name);
     pdat->ostr = (U32)psym->st_name;
-    printf("%s\n",strbase+psym->st_name);
+    pdat->type = ELF64_ST_TYPE(psym->st_info);
+    // Convert ELF symbol addresses to unit offsets
     switch(ELF64_ST_TYPE(psym->st_info)){
-      //    case STT_NOTYPE
+    case STT_FUNC:
+      pdat->off = (U32)(psym->st_value - cbase);
+      break;
+    case STT_OBJECT:
+    case STT_NOTYPE:
+    case STT_SECTION:
+      pdat->off = (U32)(psym->st_value - dbase);
+      break;
+    default:
+      break;
     }
+    printf("%08x %s\n",pdat->off,strbase+psym->st_name);
+
+
   }
 }
 
+U32 unit_find_hash(sElf*pelf,sUnit*pu,U32 hash){
+  U32* p = pu->hashes;
+  for(U32 i = 0;i<pu->nSyms; i++){
+    if(hash==*p++)
+      return i;
+  }
+  return 0;
+}
+/*
+U32 unit_sym_addr(sElf*pelf,sUnit*pu,U32 si){
+  return 
+}
+*/

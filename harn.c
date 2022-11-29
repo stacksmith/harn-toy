@@ -64,64 +64,9 @@ void apply_rel(U8* code,U32 ri){
 }
 */
 
-/* Process symbols, converting section offsets to addresses 
- * UNDEF symbols must be resolved by the system to another unit...
-*/
 
 
-void syms(sElf* pelf){
-  Elf64_Sym* psym = pelf->psym+1;
-  for(U32 i=1;i<pelf->symnum;i++,psym++){
-    char* pname = ELF_SYM_NAME(pelf,psym);
-    U32 hash = fnv1a(pname);
-    printf("Symbol %s: %08X\n",pname,hash);
-    
-    U32 shi = psym->st_shndx; // get section we are referring to
-    if(shi){
-      if(shi < 0xFF00){
-	psym->st_value += pelf->shdr[shi].sh_addr;
-	sym_dump(pelf,psym);
-      }
-    } else {
-      printf("UNDEFINED SYMBOL\n");
-      sym_dump(pelf,psym);
-      //  exit(1);
-    }
-  }
-}
 
-void process_rel_section(sElf* pelf, Elf64_Shdr* shrel){
-  U32 relnum = shrel->sh_size / shrel->sh_entsize;
-  Elf64_Rela* prel = (Elf64_Rela*)(pelf->buf + shrel->sh_offset);
-  // applying relocations to this section
-  Elf64_Shdr* shto = &pelf->shdr[shrel->sh_info];
-  U64 base = shto->sh_addr;
-  printf("Applying relocations against %lX, %ld\n",base,shto->sh_size);
-  for(U32 i=0; i<relnum; i++,prel++){
-    U64 p = base + prel->r_offset;
-    Elf64_Sym* psym = &pelf->psym[ELF64_R_SYM(prel->r_info)];
-    U64 s = psym->st_value;
-    U64 a = prel->r_addend;
-    U32 fixup = (U32)(s+a-p);
-    *((U32*)p) = fixup;
-    rel_dump(pelf,prel);
-    printf("Fixup: P:%lx A:%ld S:%lx S+A-P: %08x\n",p,a,s,fixup);        
-    
-   
-  }
-    
-}
-
-void rels(sElf* pelf){
-  printf("Rel sections:\n");
-  Elf64_Shdr* shdr = pelf->shdr;  
-  for(U32 i=0; i< pelf->shnum; i++,shdr++){
-    if(SHT_RELA == shdr->sh_type){
-  sechead_dump(pelf,i);
-      process_rel_section(pelf,shdr);
-    }
-  }
-}  
 
 
 typedef int (*fptr)(int,int);
@@ -132,22 +77,21 @@ int main(int argc, char **argv){
 	    PROT_READ|PROT_WRITE|PROT_EXEC);
   seg_alloc(&sdata,"SDATA",0x10000000,(void*)0x40000000,
 	    PROT_READ|PROT_WRITE);
-
-
   
   U32 ret = elf_load(pelf,argv[1]);
   printf("Loaded %s (%d bytes)\n",argv[1],ret);
-   elf_dump(pelf);
+  //  elf_dump(pelf);
 
-   sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
-   unit_sections(pu,pelf);
+  sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
+  unit_sections(pu,pelf);
   // reltab_dump(pelf,2);
   seg_dump(&scode); seg_dump(&sdata);
-  syms(pelf);
-  rels(pelf);
+
+  elf_syms(pelf);
+  elf_rels(pelf);
 
   
-  //symtab_dump(pelf);
+  symtab_dump(pelf);
   
   unit_symbols(pu,pelf);
   unit_dump(pu);
@@ -159,5 +103,8 @@ int main(int argc, char **argv){
   printf("result: %d\n",result);
 
 */
+
+  U32 i = unit_find_hash(pelf,pu,string_hash("cgix"));
+  printf("found symbol %d\n",i);
   return 0;
 }
