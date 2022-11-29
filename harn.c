@@ -85,7 +85,7 @@ void syms(sElf* pelf){
     } else {
       printf("UNDEFINED SYMBOL\n");
       sym_dump(pelf,psym);
-      exit(1);
+      //  exit(1);
     }
   }
 }
@@ -140,15 +140,17 @@ int main(int argc, char **argv){
    elf_dump(pelf);
 
    sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
-   unit_ingest(pu,pelf);
+   unit_sections(pu,pelf);
   // reltab_dump(pelf,2);
   seg_dump(&scode); seg_dump(&sdata);
   syms(pelf);
   rels(pelf);
 
-symtab_dump(pelf);
   
-
+  //symtab_dump(pelf);
+  
+  unit_symbols(pu,pelf);
+  unit_dump(pu);
 /*
   fptr bar;
   bar = (fptr)(0x80000016);

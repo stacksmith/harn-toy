@@ -5,8 +5,8 @@ A fillable area for code or data
   ==============================================================*/
 typedef struct sSeg {
   U8* base; // ptr of allocation/mapping
-  U8* fillptr;
-  U8* end;
+  U32 fill;
+  U32 end;
   char name[8];
 } sSeg;
 

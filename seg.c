@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string.h> 
 #include <elf.h>
 
 #include <sys/types.h>
@@ -30,7 +30,7 @@ A fillable area for code or data
 } sSeg;
 */
 void seg_dump(sSeg* pseg){
-  printf("Segment %s: %p %p\n",	 pseg->name, pseg->base, pseg->fillptr);
+  printf("Segment %s: %p %08x\n",pseg->name, pseg->base, pseg->fill);
 }
 /* -------------------------------------------------------------
    seg_alloc
@@ -49,8 +49,8 @@ int seg_alloc(sSeg* pseg,char*name,U64 req_size, void* req_addr, U32 prot){
   } else {
     memcpy(pseg->name,name,7);
     pseg->name[7]=0;
-    pseg->fillptr = pseg->base;
-    pseg->end = pseg->base + req_size;
+    pseg->fill = 0;
+    pseg->end = (U32)req_size;
     return 0;
   }
 }
@@ -61,14 +61,14 @@ seg_append  Append a run of bytes to the segment
                    if 0, fill with 0 bytes.
 ---------------------------------------------------------------*/
 U8* seg_append(sSeg* pseg,U8* start,U64 size){
-  U8* dest = pseg->fillptr;
-  U8* end = dest + size;
+  U32 end = pseg->fill + size;
+  U8* dest = pseg->base + pseg->fill;
   if(end >= pseg->end) {
     seg_dump(pseg);
     fprintf(stderr,"seg_append failed: out of space\n");
     exit(1);
   } else {
-    pseg->fillptr = end;
+    pseg->fill = end;
     if(start)
       memcpy(dest,start,size);
     else
@@ -78,7 +78,7 @@ U8* seg_append(sSeg* pseg,U8* start,U64 size){
 }
 
 void seg_align(sSeg*pseg, U64 align){
-  int rem  = ((U64)pseg->fillptr % align);
+  int rem  = pseg->fill % (U32)align;
   if(rem) {
     seg_append(pseg,0,align-rem);
     printf("Inserted pad of %ld bytes\n",align-rem);

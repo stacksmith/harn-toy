@@ -26,18 +26,20 @@ typedef struct sSym {
 
 
 typedef struct sUnit {
+  // segment data
   U32 oCode;       // code segment offset 
   U32 szCode;      // size of code
   U32 oData;       // data segment offset
   U32 szData;
-  
-  U32 nSyms;
-  char*  strings;
-  U32*   hashes;
-  sSym*  dats;
+  // symbol data
+  char*  strings;  // TODO: for now malloc'ed...
+  U32*   hashes;   // TODO: for now malloc'ed...
+  sSym*  dats;     // TODO: for now malloc'ed...
+  U32    nSyms;
 } sUnit;
 
   
-
+void unit_dump(sUnit* pu);
 U32 fnv1a(char*p);
-void unit_ingest(sUnit*pu,sElf* pelf);
+void unit_sections(sUnit*pu,sElf* pelf);
+void unit_symbols(sUnit*pu,sElf* pelf);

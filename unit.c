@@ -13,6 +13,14 @@
 extern sSeg scode;
 extern sSeg sdata;
 
+void unit_dump(sUnit* pu){
+  printf("-----\nUnit\n");
+  printf("code: %p, %d\n",scode.base + pu->oCode,pu->szCode);
+  printf("data: %p, %d\n",sdata.base + pu->oData,pu->szData);
+  printf("%d symbols\n",pu->nSyms);
+  
+}
+
 #define FNV_PRIME 16777619
 #define FNV_OFFSET_BASIS 2166136261
 
@@ -23,12 +31,22 @@ U32 fnv1a(char*p){
     hash = (U32)((hash ^ c) * FNV_PRIME);
   }
   return hash;
-}
+ }
 
 /*
 Ingest sections into code or data segment, assigning base addresses
-*/
-void unit_ingest(sUnit*pu,sElf* pelf){
+
+Of interest are section that need allocation (SHF_ALLOC)..
+Executable (SHF_EXECINSTR) sections get placed into the code seg; the
+rest go into the data seg.  
+* For now, we merge all data - BSS, vars, strings, ro or not
+* We section honor alignment
+*/ 
+void unit_sections(sUnit*pu,sElf* pelf){
+  // unit segment positions
+  pu->oCode = scode.fill;
+  pu->oData = sdata.fill;
+ 
   printf("Of interest:\n");
   Elf64_Shdr* shdr = pelf->shdr;  
   for(U32 i=0; i< pelf->shnum; i++,shdr++){
@@ -44,13 +62,13 @@ void unit_ingest(sUnit*pu,sElf* pelf){
       sechead_dump(pelf,i);
     }
   }
+  // update unit sizes
+  pu->szCode = scode.fill - pu->oCode;
+  pu->szData = sdata.fill - pu->oData;
 }
 
-
-
-void unit_prep(sElf* pelf, sUnit* pu){
+void unit_symbols(sUnit* pu,sElf* pelf){
   //  sSyms* psyms = (sSyms*) malloc(sizeof(psyms));
-
   U32 cnt = pelf->symnum-1;   //total count of symbols;
   pu->nSyms = cnt;
   
@@ -59,24 +77,19 @@ void unit_prep(sElf* pelf, sUnit* pu){
   memcpy(pu->strings,pelf->str_sym,strings_size);
 
   pu->hashes = (U32*)malloc(cnt * 4);
+  pu->dats   = (sSym*)malloc(cnt * sizeof(sSym));
 
-  pu->dats = (sSym*)malloc(cnt * sizeof(sSym));
-
-}
-/*
-void symbols_ingest(sElf* pelf, sSyms* ps){
-  char* strbase = ps->strings;
-  
-  Elf64_Sym* psym = pelf->psym + ps->cnt;  // Starting from last symbol
-  sSymDat* pdat  = ps->dats;
-  U32*     phash = ps->hashes;
-  
+  char* strbase  = pu->strings;
+  Elf64_Sym* psym = pelf->psym + pu->nSyms;  // Starting from last symbol
+  sSym* pdat   = pu->dats;
+  U32*  phash  = pu->hashes;
   for(U32 i=1;i<pelf->symnum;i++,psym--,pdat++,phash++){
     *phash = fnv1a(strbase + psym->st_name);
-    pdat->ostring = (U32)psym->st_name;
+    pdat->ostr = (U32)psym->st_name;
+    printf("%s\n",strbase+psym->st_name);
     switch(ELF64_ST_TYPE(psym->st_info)){
-      
+      //    case STT_NOTYPE
     }
   }
 }
-*/
+
