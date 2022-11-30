@@ -115,7 +115,7 @@ void unit_symbols(sUnit*pu,sElf* pelf){
   pu->hashes  = (U32*)  realloc(buf_hashes,cnt*4);
   pu->dats =    (sSym*) realloc(buf_syms,cnt*sizeof(sSym));
 }
-  
+/* 
 
 void unit_symbols1(sUnit* pu,sElf* pelf){
   //  sSyms* psyms = (sSyms*) malloc(sizeof(psyms));
@@ -168,7 +168,7 @@ void unit_symbols1(sUnit* pu,sElf* pelf){
   }
   pu->nGlobs = globs;
 }
-
+*/
 U32 unit_find_hash(sUnit*pu,U32 hash){
   U32* p = pu->hashes;
   for(U32 i = 0;i<pu->nSyms; i++){
@@ -178,6 +178,15 @@ U32 unit_find_hash(sUnit*pu,U32 hash){
   return 0;
 }
 
+/* units_find_hash
+
+ppu points at a zero-terminated list of pointers to sUnits.
+
+returns: 0 on fail or
+ * low: index+1 of matching symbol; high: index of sUnit* in list
+ * parameter ppu points at sUnit* containing it
+
+ */
 U64 units_find_hash(sUnit**ppu,U32 hash){
   sUnit* pu;
   U32 found;

@@ -147,8 +147,11 @@ int main(int argc, char **argv){
 
 */
 
-  //U64 i = units_find_hash(srch_list,string_hash("puts"));
-  //  printf("found symbol %lX\n",i);
+  sUnit** u = srch_list;
+  U32 j = (U32)units_find_hash(u,string_hash("bar"));
+  printf("found symbol %p, %X\n",u,j);
+  unit_dump(*u);
+  
   //printf("size of sym is %ld\n",sizeof(sSym));
   seg_dump(&scode); seg_dump(&sdata);
   
@@ -158,6 +161,7 @@ int main(int argc, char **argv){
     int ret = (*entry)(1,2);
     printf("returned: %d\n",ret);
   }
-  
+
+
   return 0;
 }
