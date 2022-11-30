@@ -15,8 +15,10 @@ extern sSeg scode;
 extern sSeg sdata;
 
 void usym_dump(sUnit*pu, U32 i){
+  printf("%08x ",pu->dats[i].off);
   printf("%08x ",pu->hashes[i]);//,pu->dats[i].ostr);
   printf("%s\n",pu->strings + pu->dats[i].ostr);
+  
 }
 
 void unit_dump(sUnit* pu){
@@ -30,6 +32,7 @@ void unit_dump(sUnit* pu){
   }  
   
 }
+
 
 #define FNV_PRIME 16777619
 #define FNV_OFFSET_BASIS 2166136261
@@ -77,8 +80,44 @@ void unit_sections(sUnit*pu,sElf* pelf){
   pu->szData = sdata.fill - pu->oData;
 }
 // note: 0th symbol is not ingested.
+void unit_symbols(sUnit*pu,sElf* pelf){
+  char* buf_str = (char*)malloc(0x10000);
+  U32*  buf_hashes = (U32*)malloc(0x1000 * 4);
+  sSym* buf_syms = (sSym*)malloc(0x1000 * sizeof(sSym));
 
-void unit_symbols(sUnit* pu,sElf* pelf){
+  char* name = pelf->str_sym+1;
+  char* pstr = buf_str;
+  *pstr++ = 0;
+  strcpy(pstr, name);
+  pstr += 1 + strlen(name);
+  U32 cnt = 0;
+  
+  void proc(Elf64_Sym* psym){
+    // only defined global symbols make it to our table
+    if(psym->st_shndx && ELF64_ST_BIND(psym->st_info)){
+      char* name = pelf->str_sym + psym->st_name;
+      U64 namelen = strlen(name)+1;
+      strcpy(pstr,name);
+      buf_hashes[cnt] = string_hash(name);
+      buf_syms[cnt].ostr = pstr - buf_str; // string offset
+      buf_syms[cnt].off = psym->st_value; // symbol addr
+      
+      pstr += namelen;
+      cnt++;
+    }
+  }
+  elf_process_symbols(pelf,proc);
+
+  pu->hash = string_hash(name);
+  pu->nSyms = cnt;
+  pu->nGlobs = cnt;
+  pu->strings = (char*) realloc(buf_str,pstr-buf_str);
+  pu->hashes  = (U32*)  realloc(buf_hashes,cnt*4);
+  pu->dats =    (sSym*) realloc(buf_syms,cnt*sizeof(sSym));
+}
+  
+
+void unit_symbols1(sUnit* pu,sElf* pelf){
   //  sSyms* psyms = (sSyms*) malloc(sizeof(psyms));
   // we ignore ELF sym[0], and sym[1] is filename
   U32 cnt = pelf->symnum-2;
@@ -97,8 +136,8 @@ void unit_symbols(sUnit* pu,sElf* pelf){
   Elf64_Sym* psym = pelf->psym + cnt+1;  // Starting from last symbol
   sSym* pdat   = pu->dats;
   U32*  phash  = pu->hashes;
-  U64 dbase = (U64)sdata.base + pu->oData; // absolute data
-  U64 cbase = (U64)scode.base + pu->oCode;
+  //  U64 dbase = (U64)sdata.base + pu->oData; // absolute data
+  //U64 cbase = (U64)scode.base + pu->oCode;
   U32 globs = 0;
   // walk ELF symbol table backwards; 
   for(U32 i=0;i<cnt;i++,psym--,pdat++,phash++){
@@ -106,7 +145,7 @@ void unit_symbols(sUnit* pu,sElf* pelf){
   sym_dump(pelf,psym);
     *phash = string_hash(strbase + psym->st_name);
     pdat->ostr = (U32)psym->st_name;
-    pdat->size = psym->st_size;
+    //    pdat->size = psym->st_size;
     if(ELF64_ST_BIND(psym->st_info)>0)
       globs++;
     //    pdat->type = ELF64_ST_TYPE(psym->st_info);
@@ -114,13 +153,13 @@ void unit_symbols(sUnit* pu,sElf* pelf){
     switch(ELF64_ST_TYPE(psym->st_info)){
     case STT_FUNC:
       pdat->seg = 1;
-      pdat->off = (U32)(psym->st_value - cbase);
+      pdat->off = (U32)(psym->st_value);
       break;
     case STT_OBJECT:
     case STT_NOTYPE:
     case STT_SECTION:
       pdat->seg = 0;
-      pdat->off = (U32)(psym->st_value - dbase);
+      pdat->off = (U32)(psym->st_value);
       break;
     default:
       break;
@@ -196,8 +235,8 @@ void unit_lib(sUnit*pu,char*name,U32 num,void**funs,char**names){
     p->seg=1;
     p->type=0;
     p->ostr = pstr - pu->strings;
-    p->size = 12;
-    p->off = 12 * i;
+    //  p->size = 12;i
+    p->off = (U32)(U64)scode.base + pu->oCode + 12 * i;
     strcpy(pstr,names[i]);
     pstr += (strlen(names[i])+1);
   } 

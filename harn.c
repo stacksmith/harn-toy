@@ -69,7 +69,7 @@ void apply_rel(U8* code,U32 ri){
 sUnit* puLib;
 sUnit** srch_list;
 
-//typedef int (*fptr)(int,int);
+typedef int (*fptr)(int,int);
 
 int main(int argc, char **argv){
   pelf = (sElf*)malloc(sizeof(sElf));
@@ -83,9 +83,9 @@ int main(int argc, char **argv){
   memset(srch_list,0,n);
   
   puLib = (sUnit*)malloc(sizeof(sUnit));
-  void* funs[1]={&puts};
-  char* names[2]={"puts"};
-  unit_lib(puLib,"lib",1,funs,names);
+  void* funs[2]={&puts,&__printf_chk};
+  char* names[2]={"puts","__printf_chk"};
+  unit_lib(puLib,"lib",2,funs,names);
   seg_dump(&scode); seg_dump(&sdata);
 
   
@@ -98,16 +98,41 @@ int main(int argc, char **argv){
   // reltab_dump(pelf,2);
   seg_dump(&scode); seg_dump(&sdata);
 
-  elf_syms(pelf);
+  srch_list[0] = puLib;
+  {
+  // resolve ELF symbols to actual addresses
+    void proc(Elf64_Sym* psym){
+      U32 shi = psym->st_shndx; // get section we are referring to
+      if(shi){ //for defined symbols, add section base
+	psym->st_value += pelf->shdr[shi].sh_addr;
+      } else { //for undefined symbols, find!
+	char* name = pelf->str_sym + psym->st_name;
+	U64 i = units_find_hash(srch_list,string_hash(name));
+	if(!i){
+	  printf("Undefined symbol '%s'\n",name);
+	  exit(1);
+	}
+	//      printf("Undefined %s found: %lx\n",name,i);
+	sUnit* pu = srch_list[i>>32];
+	U32 si = (i&0xFFFFFFFF)-1;
+	psym->st_value = pu->dats[si].off; // set elf sym value
+      }
+      //    sym_dump(pelf,psym);
+    }
+    elf_process_symbols(pelf,proc);
+  }
+  
+  // apply elf relocations to data loaded into unit...
   elf_rels(pelf);
   
   //  symtab_dump(pelf);
+
+  srch_list[1]=pu;
+
   
   unit_symbols(pu,pelf);
   unit_dump(pu);
 
-  srch_list[0] = puLib;
-  srch_list[1]=pu;
 
   unit_dump(puLib);
   unit_dump(pu);
@@ -122,9 +147,17 @@ int main(int argc, char **argv){
 
 */
 
-  U64 i = units_find_hash(srch_list,string_hash("putsa"));
-  printf("found symbol %lX\n",i);
-
-  printf("size of sym is %ld\n",sizeof(sSym));
+  //U64 i = units_find_hash(srch_list,string_hash("puts"));
+  //  printf("found symbol %lX\n",i);
+  //printf("size of sym is %ld\n",sizeof(sSym));
+  seg_dump(&scode); seg_dump(&sdata);
+  
+  U32 i = unit_find_hash(pu,string_hash("bar"));
+  if(i){
+    fptr entry = (fptr)(U64)(pu->dats[i-1].off);
+    int ret = (*entry)(1,2);
+    printf("returned: %d\n",ret);
+  }
+  
   return 0;
 }

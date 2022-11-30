@@ -31,8 +31,8 @@ typedef struct sSym {
       U32 seg:1;    //0=data, 1=code
       U32 type:3;   //TODO: visibility, etc
       U32 ostr:16;  //string table offset
-      U64 size:20;
-      U64 off:24;
+      ;;      U64 size:20;
+      U32 off;
     };
   };
 } sSym;

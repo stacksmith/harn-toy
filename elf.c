@@ -50,7 +50,7 @@ U32 elf_load(sElf* pelf,char* path){
   
 // process elf symbols
 void elf_syms(sElf* pelf){
-  Elf64_Sym* psym = pelf->psym+1;
+  Elf64_Sym* psym = pelf->psym+2;
   for(U32 i=2;i<pelf->symnum;i++,psym++){
     U32 shi = psym->st_shndx; // get section we are referring to
     if(shi){
@@ -59,14 +59,19 @@ void elf_syms(sElf* pelf){
      //sym_dump(pelf,psym);
       }
     } else {
-      printf("UNDEFINED SYMBOL %s\n");
       
-      sym_dump(pelf,psym);
-      //  exit(1);
     }
+    sym_dump(pelf,psym);
+
   }
 }
 
+void elf_process_symbols(sElf* pelf,pfElfSymProc proc){
+  Elf64_Sym* psym = pelf->psym + pelf->symnum-1;
+  for(U32 i=2;i<pelf->symnum;i++,psym--){
+    (*proc)(psym);
+  }
+}
 void process_rel(sElf* pelf, Elf64_Rela* prel, Elf64_Shdr* shto){
   U64 base = shto->sh_addr; // base address of image being fixed-up
   U64 p = base + prel->r_offset;
