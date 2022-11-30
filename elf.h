@@ -39,8 +39,9 @@ typedef struct sPiece {
 
 
 U32 elf_load(sElf* pelf, char* path);
-void elf_syms(sElf* pelf);
-void elf_rels(sElf* pelf);
+//void elf_syms(sElf* pelf);
+void elf_apply_rels(sElf* pelf);
 
 typedef void (*pfElfSymProc)(Elf64_Sym*psym);
 void elf_process_symbols(sElf* pelf, pfElfSymProc proc);
+void elf_resolve_symbols(sElf* pelf);

@@ -55,7 +55,6 @@ typedef struct sUnit {
   U32 szCode;      // size of code
   U32 oData;       // data segment offset
   U32 szData;
-  U32 hash; // hash of unit name
   // symbol data
   char*  strings;  // TODO: for now malloc'ed...
   U32*   hashes;   // TODO: for now malloc'ed...
@@ -67,8 +66,8 @@ typedef struct sUnit {
   
 void unit_dump(sUnit* pu);
 U32 string_hash(char*p);
-void unit_sections(sUnit*pu,sElf* pelf);
-void unit_symbols(sUnit*pu,sElf* pelf);
+void unit_sections_from_elf(sUnit*pu,sElf* pelf);
+void unit_symbols_from_elf(sUnit*pu,sElf* pelf);
 U32 unit_find_hash(sUnit*pu,U32 hash);
 U64 units_find_hash(sUnit**ppu,U32 hash);
 

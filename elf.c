@@ -9,6 +9,8 @@
 #include "elf.h"
 #include "elfdump.h"
 
+U64 global_symbol_address(char* name);
+
 /* -------------------------------------------------------------
    elf_load   Load an ELF object file (via mapping)
  -------------------------------------------------------------*/
@@ -48,30 +50,29 @@ U32 elf_load(sElf* pelf,char* path){
 }
 
   
-// process elf symbols
-void elf_syms(sElf* pelf){
-  Elf64_Sym* psym = pelf->psym+2;
-  for(U32 i=2;i<pelf->symnum;i++,psym++){
-    U32 shi = psym->st_shndx; // get section we are referring to
-    if(shi){
-      if(shi < 0xFF00){
-	psym->st_value += pelf->shdr[shi].sh_addr;
-     //sym_dump(pelf,psym);
-      }
-    } else {
-      
-    }
-    sym_dump(pelf,psym);
-
-  }
-}
-
+// a loop for processing all elf symbols, calling a function on each
+// void proc(Elf64_sym*)
+//
 void elf_process_symbols(sElf* pelf,pfElfSymProc proc){
   Elf64_Sym* psym = pelf->psym + pelf->symnum-1;
   for(U32 i=2;i<pelf->symnum;i++,psym--){
     (*proc)(psym);
   }
 }
+void elf_resolve_symbols(sElf* pelf){
+  // resolve ELF symbols to actual addresses
+  void proc(Elf64_Sym* psym){
+    U32 shi = psym->st_shndx; // get section we are referring to
+    if(shi){ //for defined symbols, add section base
+      psym->st_value += pelf->shdr[shi].sh_addr;
+    } else { //for undefined symbols, find!
+      psym->st_value
+	= global_symbol_address(pelf->str_sym + psym->st_name);
+    }
+    //          sym_dump(pelf,psym);
+  }
+  elf_process_symbols(pelf,proc);
+} 
 void process_rel(sElf* pelf, Elf64_Rela* prel, Elf64_Shdr* shto){
   U64 base = shto->sh_addr; // base address of image being fixed-up
   U64 p = base + prel->r_offset;
@@ -83,11 +84,11 @@ void process_rel(sElf* pelf, Elf64_Rela* prel, Elf64_Shdr* shto){
   case R_X86_64_PLT32: //calls
     U32 fixup = (U32)(s+a-p);
     *((U32*)p) = fixup;
-printf("Fixup: P:%lx A:%ld S:%lx S+A-P: %08x\n",p,a,s,fixup);        
+    //printf("Fixup: P:%lx A:%ld S:%lx S+A-P: %08x\n",p,a,s,fixup);        
     break;
   case R_X86_64_64: //data, pointer
     *((U64*)p) = s + a;
-printf("Fixup: P:%lx A:%ld S:%lx S+A: %016lx\n",p,a,s,s+a);
+    //printf("Fixup: P:%lx A:%ld S:%lx S+A: %016lx\n",p,a,s,s+a);
     break;
   default:
     printf("Unknown relocation type\n");
@@ -102,18 +103,18 @@ static void process_rel_section(sElf* pelf, Elf64_Shdr* shrel){
   Elf64_Rela* prel = (Elf64_Rela*)(pelf->buf + shrel->sh_offset);
   // applying relocations to this section
   Elf64_Shdr* shto = &pelf->shdr[shrel->sh_info];
-  printf("Applying relocations against %lX, %ld\n",shto->sh_addr,shto->sh_size);
+  //  printf("Applying relocations against %lX, %ld\n",shto->sh_addr,shto->sh_size);
   for(U32 i=0; i<relnum; i++,prel++){
     process_rel(pelf,prel,shto);
   }
 }
 
-void elf_rels(sElf* pelf){
-  printf("Rel sections:\n");
+void elf_apply_rels(sElf* pelf){
+  //  printf("Rel sections:\n");
   Elf64_Shdr* shdr = pelf->shdr;  
   for(U32 i=0; i< pelf->shnum; i++,shdr++){
     if(SHT_RELA == shdr->sh_type){
-  sechead_dump(pelf,i);
+      //  sechead_dump(pelf,i);
       process_rel_section(pelf,shdr);
     }
   }

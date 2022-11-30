@@ -71,6 +71,21 @@ sUnit** srch_list;
 
 typedef int (*fptr)(int,int);
 
+// global symbol-address resolver
+//
+U64 global_symbol_address(char* name){
+  sUnit** ppu = srch_list;
+  U32 i = units_find_hash(ppu,string_hash(name));
+  if(!i){
+    printf("Undefined symbol '%s'\n",name);
+    exit(1);
+  }
+//      printf("Undefined %s found: %lx\n",name,i);
+  sUnit* pu = *ppu;
+  return pu->dats[i].off; // set elf sym value
+}
+
+
 int main(int argc, char **argv){
   pelf = (sElf*)malloc(sizeof(sElf));
   seg_alloc(&scode,"SCODE",0x10000000,(void*)0x80000000,
@@ -81,63 +96,32 @@ int main(int argc, char **argv){
   U64 n = 16 * sizeof(sUnit);
   srch_list = (sUnit**)malloc(n);
   memset(srch_list,0,n);
+
   
   puLib = (sUnit*)malloc(sizeof(sUnit));
   void* funs[2]={&puts,&__printf_chk};
   char* names[2]={"puts","__printf_chk"};
   unit_lib(puLib,"lib",2,funs,names);
-  seg_dump(&scode); seg_dump(&sdata);
+  srch_list[0] = puLib;
+
+
+  // seg_dump(&scode); seg_dump(&sdata);
 
   
-  U32 ret = elf_load(pelf,argv[1]);
-  printf("Loaded %s (%d bytes)\n",argv[1],ret);
+  elf_load(pelf,argv[1]);
+  //  printf("Loaded %s (%d bytes)\n",argv[1],ret);
   //  elf_dump(pelf);
 
   sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
-  unit_sections(pu,pelf);
-  // reltab_dump(pelf,2);
-  seg_dump(&scode); seg_dump(&sdata);
-
-  srch_list[0] = puLib;
-  {
-  // resolve ELF symbols to actual addresses
-    void proc(Elf64_Sym* psym){
-      U32 shi = psym->st_shndx; // get section we are referring to
-      if(shi){ //for defined symbols, add section base
-	psym->st_value += pelf->shdr[shi].sh_addr;
-      } else { //for undefined symbols, find!
-	char* name = pelf->str_sym + psym->st_name;
-	U64 i = units_find_hash(srch_list,string_hash(name));
-	if(!i){
-	  printf("Undefined symbol '%s'\n",name);
-	  exit(1);
-	}
-	//      printf("Undefined %s found: %lx\n",name,i);
-	sUnit* pu = srch_list[i>>32];
-	U32 si = (i&0xFFFFFFFF)-1;
-	psym->st_value = pu->dats[si].off; // set elf sym value
-      }
-      //    sym_dump(pelf,psym);
-    }
-    elf_process_symbols(pelf,proc);
-  }
-  
-  // apply elf relocations to data loaded into unit...
-  elf_rels(pelf);
-  
-  //  symtab_dump(pelf);
-
+  unit_sections_from_elf(pu,pelf);
+  elf_resolve_symbols(pelf);
+  elf_apply_rels(pelf);
   srch_list[1]=pu;
-
-  
-  unit_symbols(pu,pelf);
-  unit_dump(pu);
-
+  unit_symbols_from_elf(pu,pelf);
 
   unit_dump(puLib);
   unit_dump(pu);
 
-  
 /*
   fptr bar;
   bar = (fptr)(0x80000016);
@@ -146,18 +130,19 @@ int main(int argc, char **argv){
   printf("result: %d\n",result);
 
 */
-
-  sUnit** u = srch_list;
-  U32 j = (U32)units_find_hash(u,string_hash("bar"));
-  printf("found symbol %p, %X\n",u,j);
-  unit_dump(*u);
+  printf("-------------------\n");
+  //  sUnit** u = srch_list;
+  //U32 j = (U32)units_find_hash(u,string_hash("bar"));
+  //printf("found symbol %p, %X\n",*u,j);
+  //unit_dump(*u);
   
   //printf("size of sym is %ld\n",sizeof(sSym));
-  seg_dump(&scode); seg_dump(&sdata);
+  //seg_dump(&scode); seg_dump(&sdata);
   
   U32 i = unit_find_hash(pu,string_hash("bar"));
+  printf("found %d\n",i);
   if(i){
-    fptr entry = (fptr)(U64)(pu->dats[i-1].off);
+    fptr entry = (fptr)(U64)(pu->dats[i].off);
     int ret = (*entry)(1,2);
     printf("returned: %d\n",ret);
   }
