@@ -48,10 +48,10 @@ U32 elf_load(sElf* pelf,char* path){
 }
 
   
- 
+// process elf symbols
 void elf_syms(sElf* pelf){
   Elf64_Sym* psym = pelf->psym+1;
-  for(U32 i=1;i<pelf->symnum;i++,psym++){
+  for(U32 i=2;i<pelf->symnum;i++,psym++){
     U32 shi = psym->st_shndx; // get section we are referring to
     if(shi){
       if(shi < 0xFF00){
@@ -59,7 +59,8 @@ void elf_syms(sElf* pelf){
      //sym_dump(pelf,psym);
       }
     } else {
-      printf("UNDEFINED SYMBOL\n");
+      printf("UNDEFINED SYMBOL %s\n");
+      
       sym_dump(pelf,psym);
       //  exit(1);
     }
