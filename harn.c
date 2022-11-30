@@ -85,9 +85,26 @@ U64 global_symbol_address(char* name){
   return pu->dats[i].off; // set elf sym value
 }
 
+void make_lib(void){
+  puLib = (sUnit*)malloc(sizeof(sUnit));
+  void* funs[2]={&puts,&__printf_chk};
+  char* names[2]={"puts","__printf_chk"};
+  unit_lib(puLib,"lib",2,funs,names);
+  srch_list[0] = puLib;
+}
+
+void ingest_elf(char* path,sElf* pelf, sUnit* pu){
+  // seg_dump(&scode); seg_dump(&sdata);
+  elf_load(pelf,path);
+  //  printf("Loaded %s (%d bytes)\n",argv[1],ret);
+  //  elf_dump(pelf);
+  unit_sections_from_elf(pu,pelf);
+  elf_resolve_symbols(pelf);
+  elf_apply_rels(pelf);
+  unit_symbols_from_elf(pu,pelf);
+}
 
 int main(int argc, char **argv){
-  pelf = (sElf*)malloc(sizeof(sElf));
   seg_alloc(&scode,"SCODE",0x10000000,(void*)0x80000000,
 	    PROT_READ|PROT_WRITE|PROT_EXEC);
   seg_alloc(&sdata,"SDATA",0x10000000,(void*)0x40000000,
@@ -98,26 +115,12 @@ int main(int argc, char **argv){
   memset(srch_list,0,n);
 
   
-  puLib = (sUnit*)malloc(sizeof(sUnit));
-  void* funs[2]={&puts,&__printf_chk};
-  char* names[2]={"puts","__printf_chk"};
-  unit_lib(puLib,"lib",2,funs,names);
-  srch_list[0] = puLib;
-
-
-  // seg_dump(&scode); seg_dump(&sdata);
-
-  
-  elf_load(pelf,argv[1]);
-  //  printf("Loaded %s (%d bytes)\n",argv[1],ret);
-  //  elf_dump(pelf);
-
+  make_lib();
   sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
-  unit_sections_from_elf(pu,pelf);
-  elf_resolve_symbols(pelf);
-  elf_apply_rels(pelf);
+  pelf = (sElf*)malloc(sizeof(sElf));
+  ingest_elf(argv[1],pelf,pu);
+
   srch_list[1]=pu;
-  unit_symbols_from_elf(pu,pelf);
 
   unit_dump(puLib);
   unit_dump(pu);
