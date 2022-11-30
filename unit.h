@@ -51,16 +51,18 @@ typedef struct sSym {
 */
   
 typedef struct sUnit {
-  // segment data
+      // segment data
   U32 oCode;       // code segment offset 
   U32 szCode;      // size of code
   U32 oData;       // data segment offset
   U32 szData;
+  U32 hash; // hash of unit name
   // symbol data
   char*  strings;  // TODO: for now malloc'ed...
   U32*   hashes;   // TODO: for now malloc'ed...
   sSym*  dats;     // TODO: for now malloc'ed...
   U32    nSyms;
+  U32    nGlobs;   // global symbols come first;
 } sUnit;
 
   
@@ -69,5 +71,6 @@ U32 string_hash(char*p);
 void unit_sections(sUnit*pu,sElf* pelf);
 void unit_symbols(sUnit*pu,sElf* pelf);
 U32 unit_find_hash(sUnit*pu,U32 hash);
+U64 units_find_hash(sUnit**ppu,U32 hash);
 
-void unit_lib(sElf*pelf, sUnit*pu, U32 num, void**funs, char**names);
+void unit_lib(sUnit*pu, char* name,U32 num, void**funs, char**names);

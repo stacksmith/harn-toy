@@ -15,15 +15,15 @@ extern sSeg scode;
 extern sSeg sdata;
 
 void usym_dump(sUnit*pu, U32 i){
-  printf("%08x %d\n",pu->hashes[i],pu->dats[i].ostr);
+  printf("%08x ",pu->hashes[i]);//,pu->dats[i].ostr);
   printf("%s\n",pu->strings + pu->dats[i].ostr);
 }
 
 void unit_dump(sUnit* pu){
-  printf("-----\nUnit\n");
-  printf("code: %p, %d\n",scode.base + pu->oCode,pu->szCode);
-  printf("data: %p, %d\n",sdata.base + pu->oData,pu->szData);
-  printf("%d symbols\n",pu->nSyms);
+  printf("-----\nUnit %s\n",pu->strings+1);
+  printf("code: %p, %04d  ",scode.base + pu->oCode,pu->szCode);
+  printf("data: %p, %04d  ",sdata.base + pu->oData,pu->szData);
+  printf("%d symbols, %d globals\n",pu->nSyms,pu->nGlobs);
   
   for(U32 i=0;i<pu->nSyms;i++){
     usym_dump(pu,i);
@@ -80,28 +80,35 @@ void unit_sections(sUnit*pu,sElf* pelf){
 
 void unit_symbols(sUnit* pu,sElf* pelf){
   //  sSyms* psyms = (sSyms*) malloc(sizeof(psyms));
-  U32 cnt = pelf->symnum-1;   //total count of symbols;
-  pu->nSyms = cnt;
+  // we ignore ELF sym[0], and sym[1] is filename
+  U32 cnt = pelf->symnum-2;
+  pu->nSyms = cnt;     
   
   U64 strings_size = pelf->sh_symtab->sh_size;
   pu->strings = (char*)malloc(strings_size);
   memcpy(pu->strings,pelf->str_sym,strings_size);
 
-  pu->hashes = (U32*)malloc(cnt * 4);
+  pu->hashes = (U32*) malloc(cnt * 4);
   pu->dats   = (sSym*)malloc(cnt * sizeof(sSym));
 
   char* strbase  = pu->strings;
-  Elf64_Sym* psym = pelf->psym + pu->nSyms;  // Starting from last symbol
+  pu->hash = string_hash(strbase+1);  // set unit hash
+
+  Elf64_Sym* psym = pelf->psym + cnt+1;  // Starting from last symbol
   sSym* pdat   = pu->dats;
   U32*  phash  = pu->hashes;
-  // Convert them to unit offsets.
   U64 dbase = (U64)sdata.base + pu->oData; // absolute data
   U64 cbase = (U64)scode.base + pu->oCode;
+  U32 globs = 0;
   // walk ELF symbol table backwards; 
-  for(U32 i=1;i<pelf->symnum;i++,psym--,pdat++,phash++){
+  for(U32 i=0;i<cnt;i++,psym--,pdat++,phash++){
+    printf("--");
+  sym_dump(pelf,psym);
     *phash = string_hash(strbase + psym->st_name);
     pdat->ostr = (U32)psym->st_name;
     pdat->size = psym->st_size;
+    if(ELF64_ST_BIND(psym->st_info)>0)
+      globs++;
     //    pdat->type = ELF64_ST_TYPE(psym->st_info);
     // Convert ELF symbol addresses to unit offsets
     switch(ELF64_ST_TYPE(psym->st_info)){
@@ -118,19 +125,35 @@ void unit_symbols(sUnit* pu,sElf* pelf){
     default:
       break;
     }
-    printf("%d %06x %04d %s\n",
-	   pdat->seg,pdat->off,pdat->size,strbase+psym->st_name);
+    //    printf("%d %06x %04d %s\n", pdat->seg,pdat->off,pdat->size,strbase+psym->st_name);
   }
+  pu->nGlobs = globs;
 }
 
 U32 unit_find_hash(sUnit*pu,U32 hash){
   U32* p = pu->hashes;
   for(U32 i = 0;i<pu->nSyms; i++){
     if(hash==*p++)
-      return i;
+      return i+1;
   }
   return 0;
 }
+
+U64 units_find_hash(sUnit**ppu,U32 hash){
+  sUnit* pu;
+  U32 found;
+  U64 i=0;
+  while((pu=*ppu++)){
+    found = unit_find_hash(pu,hash);
+    if(found)
+      return (i<<32)|found;
+    i++;
+  }
+  return 0;
+  
+}
+
+
 /*
 U32 unit_sym_addr(sElf*pelf,sUnit*pu,U32 si){
   return 
@@ -140,8 +163,7 @@ U32 unit_sym_addr(sElf*pelf,sUnit*pu,U32 si){
 //typedef int (*pfun)(const char* s);
 
 /* fake a library from a list of funs and names */
-
-void unit_lib(sElf*pelf,sUnit*pu,U32 num,void**funs,char**names){
+void unit_lib(sUnit*pu,char*name,U32 num,void**funs,char**names){
   static U8 buf[12]={0x48,0xB8,   // mov rax,?
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
     0xFF,0xE0}; // jmp rax
@@ -156,14 +178,18 @@ void unit_lib(sElf*pelf,sUnit*pu,U32 num,void**funs,char**names){
     *((void**)(p+2)) = funs[i];
     strbytes += (strlen(names[i])+1); // compute string total;
   }
-  pu->strings = (char*)malloc(strbytes);
-  pu->hashes = (U32*)malloc(num * 4);
-  pu->dats = (sSym*)malloc(num * sizeof(sSym));
+  U32 namelen = strlen(name)+1;
+  pu->strings = (char*)malloc(strbytes+namelen);
+  pu->hashes =   (U32*)malloc(num * 4);
+  pu->dats =    (sSym*)malloc(num * sizeof(sSym));
   pu->nSyms = num;
+  pu->nGlobs = num;
 
   // second pass: create symbols
-  char* pstr = pu->strings;
-  *pstr++ = 0;
+  char* pstr = pu->strings;  // string fill pointer
+  *pstr++ = 0;               // start with 0
+  strcpy(pstr,name);         // unit name, at 1
+  pstr+=namelen;  
   sSym* p = pu->dats;
   for(U32 i=0; i<num; i++,p++){
     pu->hashes[i] = string_hash(names[i]);

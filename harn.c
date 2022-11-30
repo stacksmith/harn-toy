@@ -67,9 +67,9 @@ void apply_rel(U8* code,U32 ri){
 
 /* create a unit with our library linkage */
 sUnit* puLib;
+sUnit** srch_list;
 
-
-typedef int (*fptr)(int,int);
+//typedef int (*fptr)(int,int);
 
 int main(int argc, char **argv){
   pelf = (sElf*)malloc(sizeof(sElf));
@@ -78,14 +78,16 @@ int main(int argc, char **argv){
   seg_alloc(&sdata,"SDATA",0x10000000,(void*)0x40000000,
 	    PROT_READ|PROT_WRITE);
 
+  U64 n = 16 * sizeof(sUnit);
+  srch_list = (sUnit**)malloc(n);
+  memset(srch_list,0,n);
+  
   puLib = (sUnit*)malloc(sizeof(sUnit));
-  void* funs[2]={0,&puts};
-  char* names[2]={"lib","puts"};
-  unit_lib(pelf,puLib,2,funs,names);
+  void* funs[1]={&puts};
+  char* names[2]={"puts"};
+  unit_lib(puLib,"lib",1,funs,names);
   seg_dump(&scode); seg_dump(&sdata);
 
-  unit_dump(puLib);
-  /*
   
   U32 ret = elf_load(pelf,argv[1]);
   printf("Loaded %s (%d bytes)\n",argv[1],ret);
@@ -98,13 +100,19 @@ int main(int argc, char **argv){
 
   elf_syms(pelf);
   elf_rels(pelf);
-
   
-  symtab_dump(pelf);
+  //  symtab_dump(pelf);
   
   unit_symbols(pu,pelf);
   unit_dump(pu);
-  */
+
+  srch_list[0] = puLib;
+  srch_list[1]=pu;
+
+  unit_dump(puLib);
+  unit_dump(pu);
+
+  
 /*
   fptr bar;
   bar = (fptr)(0x80000016);
@@ -114,8 +122,8 @@ int main(int argc, char **argv){
 
 */
 
-  U32 i = unit_find_hash(puLib,string_hash("lib"));
-  printf("found symbol %d\n",i);
+  U64 i = units_find_hash(srch_list,string_hash("putsa"));
+  printf("found symbol %lX\n",i);
 
   printf("size of sym is %ld\n",sizeof(sSym));
   return 0;
