@@ -65,8 +65,8 @@ void apply_rel(U8* code,U32 ri){
 */
 
 
-
-
+/* create a unit with our library linkage */
+sUnit* puLib;
 
 
 typedef int (*fptr)(int,int);
@@ -77,6 +77,15 @@ int main(int argc, char **argv){
 	    PROT_READ|PROT_WRITE|PROT_EXEC);
   seg_alloc(&sdata,"SDATA",0x10000000,(void*)0x40000000,
 	    PROT_READ|PROT_WRITE);
+
+  puLib = (sUnit*)malloc(sizeof(sUnit));
+  void* funs[2]={0,&puts};
+  char* names[2]={"lib","puts"};
+  unit_lib(pelf,puLib,2,funs,names);
+  seg_dump(&scode); seg_dump(&sdata);
+
+  unit_dump(puLib);
+  /*
   
   U32 ret = elf_load(pelf,argv[1]);
   printf("Loaded %s (%d bytes)\n",argv[1],ret);
@@ -95,6 +104,7 @@ int main(int argc, char **argv){
   
   unit_symbols(pu,pelf);
   unit_dump(pu);
+  */
 /*
   fptr bar;
   bar = (fptr)(0x80000016);
@@ -104,7 +114,9 @@ int main(int argc, char **argv){
 
 */
 
-  U32 i = unit_find_hash(pelf,pu,string_hash("cgix"));
+  U32 i = unit_find_hash(puLib,string_hash("lib"));
   printf("found symbol %d\n",i);
+
+  printf("size of sym is %ld\n",sizeof(sSym));
   return 0;
 }

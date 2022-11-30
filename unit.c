@@ -7,17 +7,27 @@
 #include "global.h"
 #include "elf.h"
 #include "elfdump.h"
+#include "hexdump.h"
 #include "seg.h"
 #include "unit.h"
 
 extern sSeg scode;
 extern sSeg sdata;
 
+void usym_dump(sUnit*pu, U32 i){
+  printf("%08x %d\n",pu->hashes[i],pu->dats[i].ostr);
+  printf("%s\n",pu->strings + pu->dats[i].ostr);
+}
+
 void unit_dump(sUnit* pu){
   printf("-----\nUnit\n");
   printf("code: %p, %d\n",scode.base + pu->oCode,pu->szCode);
   printf("data: %p, %d\n",sdata.base + pu->oData,pu->szData);
   printf("%d symbols\n",pu->nSyms);
+  
+  for(U32 i=0;i<pu->nSyms;i++){
+    usym_dump(pu,i);
+  }  
   
 }
 
@@ -91,27 +101,29 @@ void unit_symbols(sUnit* pu,sElf* pelf){
   for(U32 i=1;i<pelf->symnum;i++,psym--,pdat++,phash++){
     *phash = string_hash(strbase + psym->st_name);
     pdat->ostr = (U32)psym->st_name;
-    pdat->type = ELF64_ST_TYPE(psym->st_info);
+    pdat->size = psym->st_size;
+    //    pdat->type = ELF64_ST_TYPE(psym->st_info);
     // Convert ELF symbol addresses to unit offsets
     switch(ELF64_ST_TYPE(psym->st_info)){
     case STT_FUNC:
+      pdat->seg = 1;
       pdat->off = (U32)(psym->st_value - cbase);
       break;
     case STT_OBJECT:
     case STT_NOTYPE:
     case STT_SECTION:
+      pdat->seg = 0;
       pdat->off = (U32)(psym->st_value - dbase);
       break;
     default:
       break;
     }
-    printf("%08x %s\n",pdat->off,strbase+psym->st_name);
-
-
+    printf("%d %06x %04d %s\n",
+	   pdat->seg,pdat->off,pdat->size,strbase+psym->st_name);
   }
 }
 
-U32 unit_find_hash(sElf*pelf,sUnit*pu,U32 hash){
+U32 unit_find_hash(sUnit*pu,U32 hash){
   U32* p = pu->hashes;
   for(U32 i = 0;i<pu->nSyms; i++){
     if(hash==*p++)
@@ -124,3 +136,49 @@ U32 unit_sym_addr(sElf*pelf,sUnit*pu,U32 si){
   return 
 }
 */
+
+//typedef int (*pfun)(const char* s);
+
+/* fake a library from a list of funs and names */
+
+void unit_lib(sElf*pelf,sUnit*pu,U32 num,void**funs,char**names){
+  static U8 buf[12]={0x48,0xB8,   // mov rax,?
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
+    0xFF,0xE0}; // jmp rax
+  
+
+  pu->oCode = scode.fill;
+  pu->oData = sdata.fill;
+  // first pass: create per-function jump, compute strings size
+  U32 strbytes=1;
+  for(U32 i=0; i<num; i++){
+    U8* p = seg_append(&scode,buf,sizeof(buf));
+    *((void**)(p+2)) = funs[i];
+    strbytes += (strlen(names[i])+1); // compute string total;
+  }
+  pu->strings = (char*)malloc(strbytes);
+  pu->hashes = (U32*)malloc(num * 4);
+  pu->dats = (sSym*)malloc(num * sizeof(sSym));
+  pu->nSyms = num;
+
+  // second pass: create symbols
+  char* pstr = pu->strings;
+  *pstr++ = 0;
+  sSym* p = pu->dats;
+  for(U32 i=0; i<num; i++,p++){
+    pu->hashes[i] = string_hash(names[i]);
+    p->seg=1;
+    p->type=0;
+    p->ostr = pstr - pu->strings;
+    p->size = 12;
+    p->off = 12 * i;
+    strcpy(pstr,names[i]);
+    pstr += (strlen(names[i])+1);
+  } 
+  // update bounds of unit
+  pu->szCode = scode.fill - pu->oCode;
+  pu->szData = sdata.fill - pu->oData;
+  
+  //  pfun pf = (pfun)p;
+  // (*pf)("fuck you \n\n");
+}

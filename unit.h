@@ -26,16 +26,15 @@
 
 typedef struct sSym {
   union {
-    U16 pad;
+    U64 value;
     struct {
-      U32 type:4;
-      U32 vis:1;
-      U32 unk:11;
+      U32 seg:1;    //0=data, 1=code
+      U32 type:3;   //TODO: visibility, etc
+      U32 ostr:16;  //string table offset
+      U64 size:20;
+      U64 off:24;
     };
   };
-  U16 ostr;
-  U32 off;
-  U32 size;
 } sSym;
 
 /* maybe, fit into a U64:
@@ -69,4 +68,6 @@ void unit_dump(sUnit* pu);
 U32 string_hash(char*p);
 void unit_sections(sUnit*pu,sElf* pelf);
 void unit_symbols(sUnit*pu,sElf* pelf);
-U32 unit_find_hash(sElf*pelf,sUnit*pu,U32 hash);
+U32 unit_find_hash(sUnit*pu,U32 hash);
+
+void unit_lib(sElf*pelf, sUnit*pu, U32 num, void**funs, char**names);
