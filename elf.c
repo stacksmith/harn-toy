@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <elf.h>
+
 #include "global.h"
 #include "elf.h"
 #include "elfdump.h"

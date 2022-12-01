@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <dlfcn.h> 
  
 #include "global.h"
 #include "hexdump.h"
@@ -17,6 +16,9 @@
 #include "elfdump.h" 
 #include "seg.h"
 #include "unit.h"
+#include "lib.h"
+
+
 
 
 sElf* pelf;
@@ -75,17 +77,7 @@ typedef U64 (*fptr)(int,int);
 
 // global symbol-address resolver
 //
-U64 global_symbol_address(char* name){
-  sUnit** ppu = srch_list;
-  U32 i = units_find_hash(ppu,string_hash(name));
-  if(!i){
-    printf("Undefined symbol '%s'\n",name);
-    exit(1);
-  }
-//      printf("Undefined %s found: %lx\n",name,i);
-  sUnit* pu = *ppu;
-  return pu->dats[i].off; // set elf sym value
-}
+
 /*
 void make_lib(void){
   puLib = (sUnit*)malloc(sizeof(sUnit));
@@ -106,62 +98,6 @@ void ingest_elf(char* path,sElf* pelf, sUnit* pu){
   unit_symbols_from_elf(pu,pelf);
 }
 
-// load a text file containing cr-terminated names, and
-// create a proper nametable
-char* load_names(char*path,char* name,U32*pcnt){
-  FILE*f = fopen(path,"r");
-  if(!f) {
-    fprintf(stderr,"Unable to open %s\n",path);
-    exit(1);
-  }
-  U64 namelen = strlen(name);
-  U64 len;
-  fseek(f,0,SEEK_END);
-  len = ftell(f);
-  fseek(f,0,SEEK_SET);
-
-  char* buf = (char*)malloc(1+namelen+1+len);
-  char*p = buf;
-  *p++ = 0;
-  strcpy(p,name);
-  p+= namelen;
-  *p++ = 0;
-  U64 read = fread(p,1,len,f);
-  if(read !=len){
-    fprintf(stderr,"Failed reading %s got %ld of %ld\n",path,read,len);
-    exit(1);
-  }
-  fclose(f);
-
-  U32 i = 0;
-  // now, replace crs with 0, and count them
-  while((p = strchr(p,10))){
-    *p++ = 0;
-    i++;
-  }
-  *pcnt = i+1;
-  
-  return buf;	 
-}
-
-void make_lib(char* dllpath,char*namespath,char*name){
-  printf("Ingesting dll %s, names in %s, making %s\n",
-	 dllpath,namespath,name);
-  U32 symcnt;
-  char* strings = load_names(namespath,name,&symcnt);
-  //  printf("loaded %d names\n",symcnt);
-  void* dlhan = dlopen(dllpath,RTLD_NOW);
-  if(!dlhan){
-    fprintf(stderr,"Unable to open dll %s\n",dllpath);
-    exit(1);
-  }
-  puLib = (sUnit*)malloc(sizeof(sUnit));
-  unit_lib(puLib,dlhan,symcnt,strings);
-  
-  srch_list[0] = puLib;
-}
-
-
 int main(int argc, char **argv){
   seg_alloc(&scode,"SCODE",0x10000000,(void*)0x80000000,
 	    PROT_READ|PROT_WRITE|PROT_EXEC);
@@ -174,7 +110,10 @@ int main(int argc, char **argv){
 
    
   // create bindings for libc
-  make_lib("libc.so.6","libc.txt","libc");
+  puLib = lib_make("libc.so.6","libc.txt","libc");
+  srch_list[0] = puLib;
+  // load an elf file
+  
   sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
   pelf = (sElf*)malloc(sizeof(sElf));
   ingest_elf(argv[1],pelf,pu);

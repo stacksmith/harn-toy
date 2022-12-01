@@ -1,3 +1,4 @@
+#include <elf.h>
 // elf
 typedef struct sElf{
   union {
