@@ -3,6 +3,7 @@
 #include <stdlib.h> //malloc
 #include <string.h> //memcpy
 #include <elf.h>
+#include <dlfcn.h>
 
 #include "global.h"
 #include "elf.h"
@@ -271,4 +272,47 @@ void unit_lib(sUnit*pu,char*name,U32 num,void**funs,char**names){
 
   //  pfun pf = (pfun)p;
   // (*pf)("fuck you \n\n");
+}
+
+void unit_lib1(sUnit*pu,void* dlhan, U32 num,char*namebuf){
+  static U8 buf[12]={0x48,0xB8,   // mov rax,?
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
+    0xFF,0xE0}; // jmp rax
+
+  pu->oCode = scode.fill;
+  pu->oData = sdata.fill;
+
+  pu->nGlobs = num - 1;
+  pu->nSyms = num;
+  pu->strings = namebuf; // using the one passed to us
+  pu->hashes  = (U32*)malloc((num) * 4);
+  pu->dats    = (sSym*)malloc((num) * sizeof(sSym));
+  
+  // first pass: create per-function jump, compute strings size
+
+  U32* phash = pu->hashes;
+  char* pstr = pu->strings+1; //start at name
+  sSym* psym = pu->dats;
+
+  *phash++ = string_hash(pstr);
+  pstr += (strlen(pstr)+1);
+  psym->value = 0;
+  psym++;
+  for(U32 i=1; i<num; i++){
+    U8* addr = seg_append(&scode,buf,sizeof(buf)); // compile jump
+    void* pfun = dlsym(dlhan,pstr);
+    *((void**)(addr+2)) = pfun; // fixup to function address
+    psym->off = (U32)(U64)addr;
+    psym->seg  = 1;
+    psym->type = 0;
+    psym->ostr = pstr - pu->strings; // get string offset
+    psym++;
+    *phash++ = string_hash(pstr);
+    pstr += (strlen(pstr)+1);        // find next string
+  }
+  
+  // update bounds of unit
+  pu->szCode = scode.fill - pu->oCode;
+  pu->szData = sdata.fill - pu->oData;
+
 }
