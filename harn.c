@@ -14,7 +14,7 @@
 #include "global.h"
 #include "hexdump.h"
 #include "elf.h"
-#include "elfdump.h"
+#include "elfdump.h" 
 #include "seg.h"
 #include "unit.h"
 
@@ -144,7 +144,7 @@ char* load_names(char*path,char* name,U32*pcnt){
   return buf;	 
 }
 
-void make_lib1(char* dllpath,char*namespath,char*name){
+void make_lib(char* dllpath,char*namespath,char*name){
   printf("Ingesting dll %s, names in %s, making %s\n",
 	 dllpath,namespath,name);
   U32 symcnt;
@@ -156,7 +156,7 @@ void make_lib1(char* dllpath,char*namespath,char*name){
     exit(1);
   }
   puLib = (sUnit*)malloc(sizeof(sUnit));
-  unit_lib1(puLib,dlhan,symcnt,strings);
+  unit_lib(puLib,dlhan,symcnt,strings);
   
   srch_list[0] = puLib;
 }
@@ -173,8 +173,8 @@ int main(int argc, char **argv){
   memset(srch_list,0,n);
 
    
-  //  make_lib();
-  make_lib1("libc.so.6","libc.txt","libc");
+  // create bindings for libc
+  make_lib("libc.so.6","libc.txt","libc");
   sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
   pelf = (sElf*)malloc(sizeof(sElf));
   ingest_elf(argv[1],pelf,pu);

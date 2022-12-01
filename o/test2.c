@@ -23,16 +23,13 @@ int foo(int i, int j){
 }
 */
 
-typedef struct sTiny {
-  int a;
-  int b;
-} sTiny;
+int carp;
 
 char* str = "Hello,world\n";
-sTiny bar(int i, int j){
+int bar(int i, int j){
   //  int q = errno;
       puts(str);
       printf("printed %ld characters\n",strlen(str));
-      sTiny z = {i,j};
-  return z;
+      carp = i;
+  return j;
 } 

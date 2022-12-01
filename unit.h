@@ -71,5 +71,5 @@ void unit_symbols_from_elf(sUnit*pu,sElf* pelf);
 U32 unit_find_hash(sUnit*pu,U32 hash);
 U64 units_find_hash(sUnit**ppu,U32 hash);
 
-void unit_lib(sUnit*pu, char* name,U32 num, void**funs, char**names); 
-void unit_lib1(sUnit*pu,void* dlhan, U32 num,char*namebuf);
+//void unit_lib(sUnit*pu, char* name,U32 num, void**funs, char**names); 
+void unit_lib(sUnit*pu,void* dlhan, U32 num,char*namebuf);

@@ -217,6 +217,7 @@ U32 unit_sym_addr(sElf*pelf,sUnit*pu,U32 si){
 //typedef int (*pfun)(const char* s);
 
 /* fake a library from a list of funs and names */
+/*
 void unit_lib(sUnit*pu,char*name,U32 num,void**funs,char**names){
   static U8 buf[12]={0x48,0xB8,   // mov rax,?
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
@@ -273,8 +274,8 @@ void unit_lib(sUnit*pu,char*name,U32 num,void**funs,char**names){
   //  pfun pf = (pfun)p;
   // (*pf)("fuck you \n\n");
 }
-
-void unit_lib1(sUnit*pu,void* dlhan, U32 num,char*namebuf){
+*/
+void unit_lib(sUnit*pu,void* dlhan, U32 num,char*namebuf){
   static U8 buf[12]={0x48,0xB8,   // mov rax,?
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
     0xFF,0xE0}; // jmp rax
