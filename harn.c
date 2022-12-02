@@ -64,6 +64,9 @@ void testmult(U32 cnt,char**paths){
 
   //  U64 q = sys_symbol_address("str1");
   //  printf("found q: %lX\n",q);
+
+  seg_dump(&scode);
+  seg_dump(&sdata);
   fptr entry = (fptr)sys_symbol_address("bar");
   printf("found bar at %p\n",entry);
   if(entry){

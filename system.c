@@ -96,7 +96,7 @@ sUnit* sys_load_elf(char* path){
   free(pelf);
   return pu;
 }
-
+/*
 // using elvs
 void sys_load_two(char* path1, char* path2){
   sElvs elvs;
@@ -116,7 +116,7 @@ void sys_load_two(char* path1, char* path2){
   elvs_dump(&elvs);
   elvs_delete(&elvs);
 }
-
+*/
 
 void sys_load_mult(U32 cnt,char** paths){
   sElvs elvs;
@@ -129,7 +129,7 @@ void sys_load_mult(U32 cnt,char** paths){
   un = elvs_resolve_undefs(&elvs);
   printf("2.unresolveds: %d\n ",un);
   elvs_step2(&elvs);
-  elvs_dump(&elvs);
+  //  elvs_dump(&elvs);
   elvs_delete(&elvs);
 }
   
