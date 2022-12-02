@@ -25,11 +25,13 @@ int foo(int i, int j){
 
 int carp;
 
-char* str = "Hello,world\n";
+char* str1 = "Hello,world\n";
+char* str2 = "Good to be here!\n";
 int bar(int i, int j){
   //  int q = errno;
-      puts(str);
-      printf("printed %ld characters\n",strlen(str));
+      puts(str1);
+      puts(str2);
+
       carp = i;
   return j;
 } 

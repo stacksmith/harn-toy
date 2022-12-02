@@ -15,6 +15,10 @@
 extern sSeg scode;
 extern sSeg sdata;
 
+char* unit_name(sUnit* pu){
+  return pu->strings+1;
+}
+
 void usym_dump(sUnit*pu, U32 i){
   printf("%08x ",pu->dats[i].off);
   printf("%08x ",pu->hashes[i]);//,pu->dats[i].ostr);

@@ -22,17 +22,15 @@
 
 
 
-sElf* pelf;
 sSeg scode;
 sSeg sdata;
-
 sSystem sys;
 
 typedef U64 (*fptr)(int,int);
 
 
 int main(int argc, char **argv){
-  sys_init(&sys);
+  sys_init();
   
   seg_alloc(&scode,"SCODE",0x10000000,(void*)0x80000000,
 	    PROT_READ|PROT_WRITE|PROT_EXEC);
@@ -44,13 +42,13 @@ int main(int argc, char **argv){
  
   // load an elf file
 
-  sElf* pelf = elf_new();
-  sys_add(unit_ingest_elf(pelf,argv[1]));
-  free(pelf);
+  sUnit* pu = sys_load_elf(argv[1]);
 
   //  unit_dump(puLib);
-  //unit_dump(pu);
 
+  sys_dump();
+  unit_dump(pu);
+  
   printf("-------------------\n");
 
   fptr entry = (fptr)sys_symbol_address("bar");

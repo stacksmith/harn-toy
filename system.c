@@ -13,6 +13,32 @@
 #include "system.h"
 
 extern sSystem sys;
+extern sSeg scode;
+extern sSeg sdata;
+
+typedef U32 (*pfsu_iter)(sUnit* pu);
+
+void sys_units_iter(pfsu_iter proc){
+  sUnit** pulist = sys.units;
+  sUnit* pu;
+  while((pu=*pulist++)){
+    if ((*proc)(pu)){
+      return;
+    }
+  } 
+}
+void sys_dump(){
+  seg_dump(&scode);
+  seg_dump(&sdata);
+  printf("%d Units: ",sys.nUnits);
+  U32 proc(sUnit* pu){
+    printf("%s ",unit_name(pu));
+    return 0;
+  }
+  sys_units_iter(&proc);
+  puts(".");
+}
+
 
 void sys_init(){
   size_t size = (64 * sizeof(sUnit*));
@@ -47,4 +73,12 @@ U64 sys_symbol_address(char* name){
   }
 //      printf("Undefined %s found: %lx\n",name,i);
   return pu->dats[i].off; // set elf sym value
+}
+
+sUnit* sys_load_elf(char* path){
+  sElf* pelf = elf_new();
+  sUnit* pu = unit_ingest_elf(pelf,path);
+  sys_add(pu);
+  free(pelf);
+  return pu;
 }

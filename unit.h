@@ -65,6 +65,7 @@ typedef struct sUnit {
 
   
 void unit_dump(sUnit* pu);
+char* unit_name(sUnit* pu);
 U32 string_hash(char*p);
 void unit_sections_from_elf(sUnit*pu,sElf* pelf);
 void unit_symbols_from_elf(sUnit*pu,sElf* pelf);
