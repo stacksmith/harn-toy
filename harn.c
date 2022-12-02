@@ -25,51 +25,6 @@ sElf* pelf;
 sSeg scode;
 sSeg sdata;
 
-/*
-void seg_from_section(sSeg* pseg,Elf64_Shdr* psec){
-  U32 align = (U32)psec->sh_addralign;
-  int rem  = ((U64)pseg->fillptr % align);
-  if(rem) {
-    seg_append(pseg,0,align-rem);
-    printf("Inserted pad of %d bytes\n",align-rem);
-  }  
-  // src is either section, or, if NOBITS, 0
-  U8* src = (psec->sh_type==SHT_NOBITS) ? 0 : buf + psec->sh_offset;
-   U8* dest = seg_append(pseg, src, psec->sh_size);
-  psec->sh_addr = (Elf64_Addr)dest;
-}
-
-
-void apply_rel(U8* code,U32 ri){
-  Elf64_Shdr* psh = &shdr[ri];
-   Elf64_Shdr* pshstr = &shdr[sh_symtab->sh_link]; //sh of strings
-  Elf64_Sym*  syms = (Elf64_Sym*)(buf + sh_symtab->sh_offset);
-  Elf64_Rela* prel = (Elf64_Rela*) (buf + psh->sh_offset);
-  int cnt = psh->sh_size / psh->sh_entsize;
-  for(int i = 0;i < cnt; i++,prel++){
-    rel_dump(prel);
-    Elf64_Sym* psym = &syms[ELF64_R_SYM(prel->r_info)];
-    U32 reltype = ELF64_R_TYPE(prel->r_info);
-    sym_dump(pshstr,psym);
-    switch(reltype){
-    case 4: //plt32
-      U64 p = ((U64)code) + prel->r_offset;
-      S64 a = prel->r_addend;
-      U64 s = ((U64)code) + psym->st_value;
-      U32 fixup = (U32)(s+a-p);
-      printf("Fixup: P:%lx A:%ld S:%lx S+A-P: %08x\n",p,a,s,fixup);
-      *((U32*)p) = fixup;
-      break;
-    default:
-      fprintf(stderr,"apply_rel: unknown rel type %d\n",reltype);
-      exit(-1);
-    }
-  }
-}
-*/
-
-
-/* create a unit with our library linkage */
 sUnit* puLib;
 sUnit** srch_list;
 
@@ -89,28 +44,6 @@ U64 global_symbol_address(char* name){
 
 typedef U64 (*fptr)(int,int);
 
-// global symbol-address resolver
-//
-
-/*
-void make_lib(void){
-  puLib = (sUnit*)malloc(sizeof(sUnit));
-  void* funs[2]={&puts,&printf};
-  char* names[2]={"puts","printf"};
-  unit_lib(puLib,"lib",2,funs,names);
-  srch_list[0] = puLib;
-}
-*/
-void ingest_elf(char* path,sElf* pelf, sUnit* pu){
-  // seg_dump(&scode); seg_dump(&sdata);
-  elf_load(pelf,path);
-  //  printf("Loaded %s (%d bytes)\n",argv[1],ret);
-  //  elf_dump(pelf);
-  unit_sections_from_elf(pu,pelf);
-  elf_resolve_symbols(pelf);
-  elf_apply_rels(pelf);
-  unit_symbols_from_elf(pu,pelf);
-}
 
 int main(int argc, char **argv){
   seg_alloc(&scode,"SCODE",0x10000000,(void*)0x80000000,
@@ -127,11 +60,11 @@ int main(int argc, char **argv){
   puLib = lib_make("libc.so.6","libc.txt");
   srch_list[0] = puLib;
   // load an elf file
-  
-  sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
-  pelf = (sElf*)malloc(sizeof(sElf));
-  ingest_elf(argv[1],pelf,pu);
 
+  sElf* pelf = (sElf*)malloc(sizeof(sElf));
+  sUnit* pu = unit_ingest_elf(pelf,argv[1]);
+  free(pelf);
+  
   srch_list[1]=pu;
 
   unit_dump(puLib);

@@ -68,6 +68,7 @@ void unit_dump(sUnit* pu);
 U32 string_hash(char*p);
 void unit_sections_from_elf(sUnit*pu,sElf* pelf);
 void unit_symbols_from_elf(sUnit*pu,sElf* pelf);
+sUnit* unit_ingest_elf(sElf* pelf,char* path);
 U32 unit_find_hash(sUnit*pu,U32 hash);
 U64 units_find_hash(sUnit**ppu,U32 hash);
 

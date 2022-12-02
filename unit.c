@@ -121,61 +121,25 @@ void unit_symbols_from_elf(sUnit*pu,sElf* pelf){
   pu->hashes  = (U32*)  realloc(buf_hashes,cnt*4);
   pu->dats =    (sSym*) realloc(buf_syms,cnt*sizeof(sSym));
 }
-/* 
 
-void unit_symbols1(sUnit* pu,sElf* pelf){
-  //  sSyms* psyms = (sSyms*) malloc(sizeof(psyms));
-  // we ignore ELF sym[0], and sym[1] is filename
-  U32 cnt = pelf->symnum-2;
-  pu->nSyms = cnt;     
-  
-  U64 strings_size = pelf->sh_symtab->sh_size;
-  pu->strings = (char*)malloc(strings_size);
-  memcpy(pu->strings,pelf->str_sym,strings_size);
-
-  pu->hashes = (U32*) malloc(cnt * 4);
-  pu->dats   = (sSym*)malloc(cnt * sizeof(sSym));
-
-  char* strbase  = pu->strings;
-  pu->hash = string_hash(strbase+1);  // set unit hash
-
-  Elf64_Sym* psym = pelf->psym + cnt+1;  // Starting from last symbol
-  sSym* pdat   = pu->dats;
-  U32*  phash  = pu->hashes;
-  //  U64 dbase = (U64)sdata.base + pu->oData; // absolute data
-  //U64 cbase = (U64)scode.base + pu->oCode;
-  U32 globs = 0;
-  // walk ELF symbol table backwards; 
-  for(U32 i=0;i<cnt;i++,psym--,pdat++,phash++){
-    printf("--");
-  sym_dump(pelf,psym);
-    *phash = string_hash(strbase + psym->st_name);
-    pdat->ostr = (U32)psym->st_name;
-    //    pdat->size = psym->st_size;
-    if(ELF64_ST_BIND(psym->st_info)>0)
-      globs++;
-    //    pdat->type = ELF64_ST_TYPE(psym->st_info);
-    // Convert ELF symbol addresses to unit offsets
-    switch(ELF64_ST_TYPE(psym->st_info)){
-    case STT_FUNC:
-      pdat->seg = 1;
-      pdat->off = (U32)(psym->st_value);
-      break;
-    case STT_OBJECT:
-    case STT_NOTYPE:
-    case STT_SECTION:
-      pdat->seg = 0;
-      pdat->off = (U32)(psym->st_value);
-      break;
-    default:
-      break;
-    }
-    //    printf("%d %06x %04d %s\n", pdat->seg,pdat->off,pdat->size,strbase+psym->st_name);
-  }
-  pu->nGlobs = globs;
+sUnit* unit_ingest_elf(sElf* pelf, char* path){
+  // seg_dump(&scode); seg_dump(&sdata);
+  sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
+  elf_load(pelf,path);
+  //  printf("Loaded %s (%d bytes)\n",argv[1],ret);
+  //  elf_dump(pelf);
+  unit_sections_from_elf(pu,pelf);
+  elf_resolve_symbols(pelf);
+  elf_apply_rels(pelf);
+  unit_symbols_from_elf(pu,pelf);
+  return pu;
 }
-*/
+/*==========================================================================
 
+
+ */
+
+// remember that 0th slot is not a valid symbol!
 U32 unit_find_hash(sUnit*pu,U32 hash){
   U32* p = pu->hashes+1;
   for(U32 i = 1;i<pu->nSyms; i++){
@@ -208,73 +172,6 @@ U64 units_find_hash(sUnit**ppu,U32 hash){
 }
 
 
-/*
-U32 unit_sym_addr(sElf*pelf,sUnit*pu,U32 si){
-  return 
-}
-*/
-
-//typedef int (*pfun)(const char* s);
-
-/* fake a library from a list of funs and names */
-/*
-void unit_lib(sUnit*pu,char*name,U32 num,void**funs,char**names){
-  static U8 buf[12]={0x48,0xB8,   // mov rax,?
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
-    0xFF,0xE0}; // jmp rax
-
-  pu->oCode = scode.fill;
-  pu->oData = sdata.fill;
-  // first pass: create per-function jump, compute strings size
-  U32 namelen = strlen(name)+1;
-  U32 strbytes=1+namelen;
-  for(U32 i=0; i<num; i++){
-    U8* p = seg_append(&scode,buf,sizeof(buf)); // compile jump
-    *((void**)(p+2)) = funs[i]; // fixup to function address
-    strbytes += (strlen(names[i])+1); // compute string total;
-  }
-  
-
-  // allocate, accounting for extra 0th sym and hash
-  pu->nGlobs = num;  //actual usable global symbols
-  num++;
-  pu->nSyms = num;   //0th is used for lib name
-  pu->strings = (char*)malloc(strbytes);
-  pu->hashes =   (U32*)malloc((num) * 4);
-  pu->dats =    (sSym*)malloc((num) * sizeof(sSym));
-
-  // second pass: create symbols
-  char* pstr = pu->strings;  // string fill pointer
-  *pstr++ = 0;               // start with 0
-  strcpy(pstr,name);         // unit name, at 1
-  pstr+=namelen;
-  sSym* p = pu->dats;
-  p->value = 0; //0th entry
-  p++;
-  U32* phash = pu->hashes;
-  *phash++ = string_hash(name);
-
-  for(U32 i=0; i<num-1; i++,p++){
-    //    printf("processing %s\n",names[i]);
-    *phash++ = string_hash(names[i]);
-    strcpy(pstr,names[i]);
-    p->seg=1;
-    p->type=0;
-    p->ostr = pstr - pu->strings;
-    //  p->size = 12;i
-    p->off = (U32)(U64)scode.base + pu->oCode + 12 * i;
-    //
-    pstr += (strlen(names[i])+1);
-  } 
-  // update bounds of unit
-  pu->szCode = scode.fill - pu->oCode;
-  pu->szData = sdata.fill - pu->oData;
-
-
-  //  pfun pf = (pfun)p;
-  // (*pf)("fuck you \n\n");
-}
-*/
 void unit_lib(sUnit*pu,void* dlhan, U32 num,char*namebuf){
   static U8 buf[12]={0x48,0xB8,   // mov rax,?
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //64-bit address
