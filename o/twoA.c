@@ -14,6 +14,7 @@ readelf -W -s test10.o
  */
 
 #include <stdio.h>
+int A;
 
 int funB(int b);
 

@@ -11,6 +11,7 @@
 #include "unit.h"
 #include "lib.h"
 #include "system.h"
+#include "elvs.h"
 
 extern sSystem sys;
 extern sSeg scode;
@@ -143,6 +144,29 @@ void sys_load_two(char* path1, char* path2){
   sys_add(pu1);
   sys_add(pu1);
 
-  //
+  // now find the entry point
+  /*
+  sElf* elfs[3]={pelf1,pelf2,0};
+  
+  sElvs elvs;
+  elvs_init(&elvs,elfs);
+  elvs_dump(&elvs);
+  */
+}
+// using elvs
+void sys_load_two1(char* path1, char* path2){
+  sElvs elvs;
+  char* paths[3]={path1,path2,0};
+  elvs_init(&elvs,2,paths);
+
+  // resolve each unit to its own symbols and globals
+  U32 un = elvs_resolve_symbols(&elvs);
+  // reslove each unit against all Elf symbols
+  printf("unresolveds: %d \n",un);
+  un = elvs_resolve_undefs(&elvs);
+    
+  printf("unresolveds: %d\n ",un);
+
+  elvs_step2(&elvs);
   
 }

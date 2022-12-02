@@ -11,7 +11,8 @@
 #include "elf.h"
 #include "elfdump.h"
 
-U32 sys_symbol_address(char* name);
+
+
 
 /* -------------------------------------------------------------
    elf_load   Load an ELF object file (via mapping)
@@ -63,10 +64,18 @@ void elf_delete(sElf* pelf){
 // a loop for processing all elf symbols, calling a function on each
 // void proc(Elf64_sym*)
 //
+/*
 void elf_process_symbols(sElf* pelf,pfElfSymProc proc){
   Elf64_Sym* psym = pelf->psym + pelf->symnum-1;
   for(U32 i=2;i<pelf->symnum;i++,psym--){
     (*proc)(psym);
+  }
+}
+*/
+void elf_process_symbols(sElf* pelf,pfElfSymProc proc){
+  Elf64_Sym* psym = pelf->psym + pelf->symnum-1;
+  for(U32 i=pelf->symnum-1;i>1;i--,psym--){
+    (*proc)(psym,i);
   }
 }
 
@@ -98,7 +107,7 @@ Elf64_Sym* elf_find(sElf* pelf, U32 hash){
 U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup){
   // resolve ELF symbols to actual addresses
   U32 nUndef = 0;
-  void proc(Elf64_Sym* psym){
+  void proc(Elf64_Sym* psym,U32 i){
     U32 shi = psym->st_shndx; // get section we are referring to
     if(shi){ //for defined symbols, add section base
       psym->st_value += pelf->shdr[shi].sh_addr;
@@ -118,7 +127,7 @@ U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup){
 U32 elf_resolve_undefs(sElf* pelf,pfresolver lookup){
   // resolve ELF symbols to actual addresses
   U32 nUndef = 0;
-  void proc(Elf64_Sym* psym){
+  void proc(Elf64_Sym* psym,U32 i){
     // only process NOTYPE symbols with 0 value as undefs
     if((STT_NOTYPE == ELF64_ST_TYPE(psym->st_info)) &&
        (!psym->st_value)) {
@@ -180,12 +189,3 @@ void elf_apply_rels(sElf* pelf){
     }
   }
 }  
-
-/* for multi-elf loads, we need to try to resolve undefined symbols.
-  There are two ways: 
-  * in the elf files, prior to ingesting symbols.  A little slow since
-    there is no hash...
-  * in the system, kind of complicated, since we need to ingest symbols 
-    prior to resolving addresses... and correlate elf symbols to ours...
-*/
-

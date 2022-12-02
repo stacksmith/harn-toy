@@ -47,7 +47,7 @@ void  elf_delete(sElf* pelf);
 //void elf_syms(sElf* pelf);
 void elf_apply_rels(sElf* pelf);
 
-typedef void (*pfElfSymProc)(Elf64_Sym*psym);
+typedef void (*pfElfSymProc)(Elf64_Sym*psym,U32 i);
 void elf_process_symbols(sElf* pelf, pfElfSymProc proc);
 U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup);
 U32 elf_resolve_undefs(sElf* pelf,pfresolver lookup);

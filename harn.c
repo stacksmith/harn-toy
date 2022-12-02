@@ -49,7 +49,7 @@ void test2(char*name){
 }
 
 void testab(char*name1,char*name2){
-  sys_load_two(name1,name2);
+  sys_load_two1(name1,name2);
   fptr entry = (fptr)sys_symbol_address("funA");
   printf("found %p\n",entry);
   if(entry){

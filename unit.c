@@ -92,7 +92,7 @@ void unit_symbols_from_elf(sUnit*pu,sElf* pelf){
 
   // reserve 0th
   U32 cnt = 1;
-  void proc(Elf64_Sym* psym){
+  void proc(Elf64_Sym* psym,U32 i){
     // only defined global symbols make it to our table
     if(psym->st_shndx && ELF64_ST_BIND(psym->st_info)){
       char* name = pelf->str_sym + psym->st_name;
