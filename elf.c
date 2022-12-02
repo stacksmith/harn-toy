@@ -38,6 +38,8 @@ S64 elf_load(sElf* pelf,char* path){
   // string table associated with symbols
   pelf->str_sym = pelf->buf + pelf->shdr[pelf->sh_symtab->sh_link].sh_offset;
 
+  // build the hashtable
+  pelf->hashes = 0;//
   return len;
 }
 sElf* elf_new(){
@@ -50,6 +52,10 @@ void elf_delete(sElf* pelf){
     fprintf(stderr,"Error unmapping an elf file\n");
     exit(1);
   }
+  // if we allocated a hashlist, free it.
+  if(pelf->hashes)
+    free(pelf->hashes);
+  
   free(pelf);
 }
 
@@ -63,19 +69,49 @@ void elf_process_symbols(sElf* pelf,pfElfSymProc proc){
     (*proc)(psym);
   }
 }
-void elf_resolve_symbols(sElf* pelf){
+
+void elf_build_hashlist(sElf* pelf){
+  // allocate a hash per symbol; last one is set to 0
+  U32* phash = pelf->hashes = (U32*)malloc((pelf->symnum + 1) * 4);
+  Elf64_Sym* psym = pelf->psym;
+  U32 i = 0;
+  while(i<pelf->symnum){
+    *phash++ = string_hash(pelf->str_sym + psym->st_name);
+    psym++;
+    i++;
+  }
+  *phash=0; // set the final one to 0 for search termination
+}
+
+Elf64_Sym* elf_find(sElf* pelf, U32 hash){
+  U32* phash = pelf->hashes;
+  Elf64_Sym* psym = pelf->psym;
+  while(phash){
+    if(hash==*phash++)
+      return psym;
+    else
+      psym++;
+  }
+  return 0;
+}
+
+U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup){
   // resolve ELF symbols to actual addresses
+  U32 nUndef = 0;
   void proc(Elf64_Sym* psym){
     U32 shi = psym->st_shndx; // get section we are referring to
     if(shi){ //for defined symbols, add section base
       psym->st_value += pelf->shdr[shi].sh_addr;
     } else { //for undefined symbols, find!
-      psym->st_value
-	= sys_symbol_address(pelf->str_sym + psym->st_name);
+      psym->st_value = (*lookup)(pelf->str_sym + psym->st_name);
+      // count undefined symbols
+      if(!psym->st_value)
+	nUndef++;
     }
     //          sym_dump(pelf,psym);
   }
   elf_process_symbols(pelf,proc);
+  return nUndef;
 } 
 void process_rel(sElf* pelf, Elf64_Rela* prel, Elf64_Shdr* shto){
   U64 base = shto->sh_addr; // base address of image being fixed-up
@@ -123,3 +159,12 @@ void elf_apply_rels(sElf* pelf){
     }
   }
 }  
+
+/* for multi-elf loads, we need to try to resolve undefined symbols.
+  There are two ways: 
+  * in the elf files, prior to ingesting symbols.  A little slow since
+    there is no hash...
+  * in the system, kind of complicated, since we need to ingest symbols 
+    prior to resolving addresses... and correlate elf symbols to ours...
+*/
+

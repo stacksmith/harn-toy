@@ -29,6 +29,30 @@ sSystem sys;
 typedef U64 (*fptr)(int,int);
 
 
+void test2(char*name){
+  sUnit* pu = sys_load_elf(name);
+
+  //  unit_dump(puLib);
+
+  //  sys_dump();
+  //unit_dump(pu);
+  
+  printf("-------------------\n");
+
+  fptr entry = (fptr)sys_symbol_address("bar");
+  printf("found %p\n",entry);
+  if(entry){
+    //    fptr entry = (fptr)(U64)(pu->dats[i].off);
+    U64 ret = (*entry)(1,2);
+    printf("returned: %lx\n",ret);
+  }
+}
+
+void testab(char*name1,char*name2){
+  sys_load_two(name1,name2);
+
+}
+
 int main(int argc, char **argv){
   sys_init();
   
@@ -40,26 +64,7 @@ int main(int argc, char **argv){
   // create bindings for libc
   sys_add(lib_make("libc.so.6","libc.txt"));
  
-  // load an elf file
-
-  sUnit* pu = sys_load_elf(argv[1]);
-
-  //  unit_dump(puLib);
-
-  sys_dump();
-  unit_dump(pu);
-  
-  printf("-------------------\n");
-
-  fptr entry = (fptr)sys_symbol_address("bar");
-  printf("found %p\n",entry);
-  if(entry){
-    //    fptr entry = (fptr)(U64)(pu->dats[i].off);
-    U64 ret = (*entry)(1,2);
-    printf("returned: %lx\n",ret);
-  }
-
-  //printf("wprintf is at %x\n",sys_symbol_address("wprintf"));
-
+  test2(argv[1]);
+  //testab("o/twoA.o","o/twoB.o");
   return 0;
 }

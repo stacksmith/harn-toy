@@ -39,17 +39,6 @@ void unit_dump(sUnit* pu){
 }
 
 
-#define FNV_PRIME 16777619
-#define FNV_OFFSET_BASIS 2166136261
-
-U32 string_hash(char*p){
-  U32 hash = FNV_OFFSET_BASIS;
-  U8 c;
-  while((c=*p++)){
-    hash = (U32)((hash ^ c) * FNV_PRIME);
-  }
-  return hash;
- }
 
 /*
 Ingest sections into code or data segment, assigning base addresses
@@ -141,18 +130,24 @@ We need to
 
   */
 
-sUnit* unit_ingest_elf(sElf* pelf, char* path){
-  // seg_dump(&scode); seg_dump(&sdata);
-  sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
-  elf_load(pelf,path);
-  //  printf("Loaded %s (%d bytes)\n",argv[1],ret);
-  //  elf_dump(pelf);
-  unit_sections_from_elf(pu,pelf);
-  elf_resolve_symbols(pelf);
-  
+void unit_ingest_elf2(sUnit* pu,sElf* pelf){
   elf_apply_rels(pelf);
   unit_symbols_from_elf(pu,pelf);
+}
+sUnit* unit_ingest_elf1(sElf* pelf, char* path){
+  elf_load(pelf,path);
+  // seg_dump(&scode); seg_dump(&sdata);
+  sUnit* pu = (sUnit*)malloc(sizeof(sUnit));
+  unit_sections_from_elf(pu,pelf);
   return pu;
+}
+
+U32 unit_elf_resolve(sElf*pelf,pfresolver resolver){
+  U32 unresolved = elf_resolve_symbols(pelf,resolver);
+  if(unresolved)
+    printf("%d unresolved\n",unresolved);
+  //  unit_ingest_elf2(pu,pelf);
+  return unresolved;
 }
 /*==========================================================================
 

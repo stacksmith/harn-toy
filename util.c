@@ -29,6 +29,21 @@ void* hd(void*ptr,int lines){
   }
   return ptr;
 }
+
+
+#define FNV_PRIME 16777619
+#define FNV_OFFSET_BASIS 2166136261
+
+U32 string_hash(char*p){
+  U32 hash = FNV_OFFSET_BASIS;
+  U8 c;
+  while((c=*p++)){
+    hash = (U32)((hash ^ c) * FNV_PRIME);
+  }
+  return hash;
+}
+
+
 typedef struct sFileMap {
   void* addr;
   union {
