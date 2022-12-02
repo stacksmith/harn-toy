@@ -40,7 +40,7 @@ S64 elf_load(sElf* pelf,char* path){
   pelf->str_sym = pelf->buf + pelf->shdr[pelf->sh_symtab->sh_link].sh_offset;
 
   // build the hashtable
-  pelf->hashes = 0;//
+  //  pelf->hashes = 0;//
   return len;
 }
 sElf* elf_new(){
@@ -54,8 +54,8 @@ void elf_delete(sElf* pelf){
     exit(1);
   }
   // if we allocated a hashlist, free it.
-  if(pelf->hashes)
-    free(pelf->hashes);
+  //  if(pelf->hashes)
+  //  free(pelf->hashes);
   
   free(pelf);
 }
@@ -77,31 +77,6 @@ void elf_process_symbols(sElf* pelf,pfElfSymProc proc){
   for(U32 i=pelf->symnum-1;i>1;i--,psym--){
     (*proc)(psym,i);
   }
-}
-
-void elf_build_hashlist(sElf* pelf){
-  // allocate a hash per symbol; last one is set to 0
-  U32* phash = pelf->hashes = (U32*)malloc((pelf->symnum + 1) * 4);
-  Elf64_Sym* psym = pelf->psym;
-  U32 i = 0;
-  while(i<pelf->symnum){
-    *phash++ = string_hash(pelf->str_sym + psym->st_name);
-    psym++;
-    i++;
-  }
-  *phash=0; // set the final one to 0 for search termination
-}
-
-Elf64_Sym* elf_find(sElf* pelf, U32 hash){
-  U32* phash = pelf->hashes;
-  Elf64_Sym* psym = pelf->psym;
-  while(phash){
-    if(hash==*phash++)
-      return psym;
-    else
-      psym++;
-  }
-  return 0;
 }
 
 U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup){

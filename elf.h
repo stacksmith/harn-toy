@@ -2,7 +2,7 @@
 // elf
 typedef struct sElf{
   union {
-    U8* buf;
+    U8* buf;               // mapped
     Elf64_Ehdr* ehdr;
   };
   Elf64_Shdr* shdr;        // array of section headers
@@ -12,7 +12,7 @@ typedef struct sElf{
   U32 symnum;
   char* str_sym;           //string for symbols
 
-  U32* hashes;  // a table of name hashes matching symbol table
+  //  U32* hashes;  // a table of name hashes matching symbol table
   S64 map_size; // for unmapping buf
 } sElf;
 
@@ -52,5 +52,5 @@ void elf_process_symbols(sElf* pelf, pfElfSymProc proc);
 U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup);
 U32 elf_resolve_undefs(sElf* pelf,pfresolver lookup);
 
-void elf_build_hashlist(sElf* pelf);
-Elf64_Sym* elf_find(sElf* pelf, U32 hash);
+//void elf_build_hashlist(sElf* pelf);
+//Elf64_Sym* elf_find(sElf* pelf, U32 hash);

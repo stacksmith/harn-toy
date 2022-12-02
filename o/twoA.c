@@ -26,4 +26,6 @@ int funA(int a){
   return a + funB(a);  // a + a+2
 }
 
-
+int bar(int a, int b){
+  return funA(a);
+}

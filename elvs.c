@@ -14,12 +14,43 @@
 #include "system.h"
 #include "elvs.h"
 
-/* for multi-elf loads, we need to try to resolve undefined symbols.
+
+/* ELVS - a subsystem for linking a group of elf object files with
+          cross-linkage
+
+
+  for multi-elf loads, we need to try to resolve undefined symbols.
   For that, we build a hashlist of all GLOBAL OBJECTs and FUNCs, 
   resolving to proper sElf and Syms.
 
 */
-U64 sys_symbol_address(char* name);
+
+/*
+void elf_build_hashlist(sElf* pelf){
+  // allocate a hash per symbol; last one is set to 0
+  U32* phash = pelf->hashes = (U32*)malloc((pelf->symnum + 1) * 4);
+  Elf64_Sym* psym = pelf->psym;
+  U32 i = 0;
+  while(i<pelf->symnum){
+    *phash++ = string_hash(pelf->str_sym + psym->st_name);
+    psym++;
+    i++;
+  }
+  *phash=0; // set the final one to 0 for search termination
+}
+*/
+typedef U32 (*pf_elvs_pelf)(sElf* pelf);
+
+void elvs_proc_pelfs(sElvs* pm,pf_elvs_pelf proc){
+  sElf**ppelf = pm->pelfs;
+  sElf* pelf;
+  while((pelf=*ppelf++)){
+    if( (*proc)(pelf) )
+      return;
+  }
+}
+
+//U64 sys_symbol_address(char* name);
 
 void elvs_init(sElvs* pm, U32 cnt,char**paths){
   pm->nelfs = cnt;
@@ -66,18 +97,31 @@ void elvs_init(sElvs* pm, U32 cnt,char**paths){
   *pielf = 0;
   *pisym = 0;
   pm->nsyms = nsyms;
-  
-
-
-
-
 }
 
-//void melf_make_hashlist(sElf** melf){
+// free components.
+void elvs_delete(sElvs* pm){
+  U32 proc(sElf* pelf){
+    elf_delete(pelf);
+    return 0;
+  }
+  elvs_proc_pelfs(pm,proc);
 
+  free(pm->ppu);
+  free(pm->hashes);
+  free(pm->ielf);
+  free(pm->isym);
+}
 
 void elvs_dump(sElvs* pm){
   printf("sElvs with %d elfs and %d symbols\n",pm->nelfs,pm->nsyms);
+  
+  U32 proc(sElf* pelf){
+    puts(pelf->str_sym+1);
+    return 0;
+  }
+  elvs_proc_pelfs(pm,proc);
+  
   U32* phash = pm->hashes;
   U8*  pielf = pm->ielf;
   U16* pisym = pm->isym;

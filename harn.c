@@ -28,7 +28,7 @@ sSystem sys;
 
 typedef U64 (*fptr)(int,int);
 
-
+/*
 void test2(char*name){
   sUnit* pu = sys_load_elf(name);
 
@@ -49,9 +49,23 @@ void test2(char*name){
 }
 
 void testab(char*name1,char*name2){
-  sys_load_two1(name1,name2);
+  sys_load_two(name1,name2);
   fptr entry = (fptr)sys_symbol_address("funA");
   printf("found %p\n",entry);
+  if(entry){
+    //    fptr entry = (fptr)(U64)(pu->dats[i].off);
+    U64 ret = (*entry)(5,0);
+    printf("returned: %ld\n",ret);
+  }
+}
+*/
+void testmult(U32 cnt,char**paths){
+  sys_load_mult(cnt,paths);
+
+  //  U64 q = sys_symbol_address("str1");
+  //  printf("found q: %lX\n",q);
+  fptr entry = (fptr)sys_symbol_address("bar");
+  printf("found bar at %p\n",entry);
   if(entry){
     //    fptr entry = (fptr)(U64)(pu->dats[i].off);
     U64 ret = (*entry)(5,0);
@@ -71,6 +85,7 @@ int main(int argc, char **argv){
   sys_add(lib_make("libc.so.6","libc.txt"));
  
   //  test2(argv[1]);
-  testab("o/twoA.o","o/twoB.o");
+  //  testab("o/twoA.o","o/twoB.o");
+  testmult(argc-1,argv+1);
   return 0;
 }
