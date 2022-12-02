@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h> //malloc
 #include <sys/mman.h>
 
 
@@ -10,7 +11,7 @@
 #include "elf.h"
 #include "elfdump.h"
 
-U64 global_symbol_address(char* name);
+U32 sys_symbol_address(char* name);
 
 /* -------------------------------------------------------------
    elf_load   Load an ELF object file (via mapping)
@@ -18,27 +19,9 @@ U64 global_symbol_address(char* name);
 S64 elf_load(sElf* pelf,char* path){
   S64 len = file_map((void**)&pelf->buf,path,PROT_READ|PROT_WRITE);
   if(len<0) file_map_error_msg(len,path,1);
+  pelf->map_size = len; // for unmapping
+  //  printf("loaded elf %ld\n",len);  
 
-  
-  /*
-  int fd = open(path, O_RDONLY);
-  if(fd<0) {
-    printf("Error opening %s\n",path);
-    return 0;
-  }
-  off_t len = lseek(fd, 0, SEEK_END);
-  if(fd<0){
-    printf("Error seeking end\n");
-    return 0;
-  }
-  pelf->buf = (U8*)mmap(0, len, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
-  if(!pelf->buf) {
-    printf("Error mapping'ing %ld bytes\n",len);
-    return 0;
-  }
-  close(fd);
-  */
-  printf("loaded elf %ld\n",len);  
   // section header array
   pelf->shdr = (Elf64_Shdr*)(pelf->buf + pelf->ehdr->e_shoff);
   pelf->shnum = pelf->ehdr->e_shnum;
@@ -56,6 +39,18 @@ S64 elf_load(sElf* pelf,char* path){
   pelf->str_sym = pelf->buf + pelf->shdr[pelf->sh_symtab->sh_link].sh_offset;
 
   return len;
+}
+sElf* elf_new(){
+  sElf* p = (sElf*)malloc(sizeof(sElf));
+  p->buf = 0;
+  return p;
+}
+void elf_delete(sElf* pelf){
+  if(munmap(pelf->buf,pelf->map_size)){
+    fprintf(stderr,"Error unmapping an elf file\n");
+    exit(1);
+  }
+  free(pelf);
 }
 
   
@@ -76,7 +71,7 @@ void elf_resolve_symbols(sElf* pelf){
       psym->st_value += pelf->shdr[shi].sh_addr;
     } else { //for undefined symbols, find!
       psym->st_value
-	= global_symbol_address(pelf->str_sym + psym->st_name);
+	= sys_symbol_address(pelf->str_sym + psym->st_name);
     }
     //          sym_dump(pelf,psym);
   }

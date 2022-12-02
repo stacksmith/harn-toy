@@ -81,7 +81,7 @@ void unit_sections_from_elf(sUnit*pu,sElf* pelf){
   pu->szData = sdata.fill - pu->oData;
 }
 
-// note: 0th symbol is not ingested.
+
 void unit_symbols_from_elf(sUnit*pu,sElf* pelf){
 
   char* buf_str = (char*)malloc(0x10000);
@@ -121,6 +121,21 @@ void unit_symbols_from_elf(sUnit*pu,sElf* pelf){
   pu->hashes  = (U32*)  realloc(buf_hashes,cnt*4);
   pu->dats =    (sSym*) realloc(buf_syms,cnt*sizeof(sSym));
 }
+/*
+  There are 4 stages of ingestion:
+  * unit_sections         - ingest unfixed data and code from ELF sections;
+  * elf_resolve_symbols   - resolve ELF symbols in ELF file to addresses
+  * elf_apply_rels        - apply in-system fixups using elf rels
+  * unit_symbols_from_elf - create system symbols from elf file
+
+To resolve cross-file dependencies we need to work with multiple elf files.
+We can run the first two steps on each elf file, constructing system segs, 
+and resolving local symbols; we wind up                                                                                      with UNDEF symbols for both globals
+and interdependent symbols.  We need to resolve any interdeependencies first.
+We need to
+* search each elf file for defined visible symbols, and resolve elf symbols
+
+  */
 
 sUnit* unit_ingest_elf(sElf* pelf, char* path){
   // seg_dump(&scode); seg_dump(&sdata);
@@ -130,6 +145,7 @@ sUnit* unit_ingest_elf(sElf* pelf, char* path){
   //  elf_dump(pelf);
   unit_sections_from_elf(pu,pelf);
   elf_resolve_symbols(pelf);
+  
   elf_apply_rels(pelf);
   unit_symbols_from_elf(pu,pelf);
   return pu;
@@ -139,7 +155,10 @@ sUnit* unit_ingest_elf(sElf* pelf, char* path){
 
  */
 
-// remember that 0th slot is not a valid symbol!
+/*
+ find a specified hash in a unit and return the symbol index, or 0
+ remember that 0th slot is not a valid symbol!
+*/
 U32 unit_find_hash(sUnit*pu,U32 hash){
   U32* p = pu->hashes+1;
   for(U32 i = 1;i<pu->nSyms; i++){
@@ -157,7 +176,7 @@ returns: 0 on fail or
  * low: index+1 of matching symbol; high: index of sUnit* in list
  * parameter ppu points at sUnit* containing it
 
- */
+
 U64 units_find_hash(sUnit**ppu,U32 hash){
   sUnit* pu;
   U32 found;
@@ -170,7 +189,7 @@ U64 units_find_hash(sUnit**ppu,U32 hash){
   }
   return 0;
 }
-
+ */
 
 void unit_lib(sUnit*pu,void* dlhan, U32 num,char*namebuf){
   static U8 buf[12]={0x48,0xB8,   // mov rax,?

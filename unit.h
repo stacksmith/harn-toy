@@ -70,7 +70,7 @@ void unit_sections_from_elf(sUnit*pu,sElf* pelf);
 void unit_symbols_from_elf(sUnit*pu,sElf* pelf);
 sUnit* unit_ingest_elf(sElf* pelf,char* path);
 U32 unit_find_hash(sUnit*pu,U32 hash);
-U64 units_find_hash(sUnit**ppu,U32 hash);
+
 
 //void unit_lib(sUnit*pu, char* name,U32 num, void**funs, char**names); 
 void unit_lib(sUnit*pu,void* dlhan, U32 num,char*namebuf);

@@ -11,8 +11,8 @@ typedef struct sElf{
   Elf64_Sym* psym;
   U32 symnum;
   char* str_sym;           //string for symbols
-  
-  
+
+  S64 map_size; // for unmapping buf
 } sElf;
 
 
@@ -40,6 +40,9 @@ typedef struct sPiece {
 
 
 S64 elf_load(sElf* pelf, char* path);
+sElf* elf_new();
+void  elf_delete(sElf* pelf);
+
 //void elf_syms(sElf* pelf);
 void elf_apply_rels(sElf* pelf);
 

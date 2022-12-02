@@ -47,8 +47,6 @@ char* lib_load_names(char*path,U32*pcnt){
   return buf;	 
 }
 
-
-
 sUnit* lib_make(char* dllpath,char*namespath){
   printf("Ingesting dll %s, names in %s\n",
 	 dllpath,namespath);
