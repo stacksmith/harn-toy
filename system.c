@@ -106,14 +106,43 @@ void sys_load_two(char* path1, char* path2){
   sUnit* pu1 = unit_ingest_elf1(pelf1,path1);
   sUnit* pu2 = unit_ingest_elf1(pelf2,path2);
 
+  elf_build_hashlist(pelf1);
+  elf_build_hashlist(pelf2);
+
+  U64 resolver(char* symname){
+    U32 hash = string_hash(symname);
+    Elf64_Sym* psym;
+    psym = elf_find(pelf1,hash);
+    printf("looking for %s in file1. %p.\n",symname,psym);
+    if(!psym || (psym && (!psym->st_value))){
+      psym = elf_find(pelf2,hash);
+      printf("looking for %s in file2. %p.\n",symname,psym);
+    }
+    if(psym)
+      return psym->st_value;
+    else
+      return 0;
+  }
+  // resolve each unit to its own symbols and globals
   U32 un1 = unit_elf_resolve(pelf1,&sys_symbol_address);
   U32 un2 = unit_elf_resolve(pelf2,&sys_symbol_address);
 
-  /*  puts("pass2");
+  // reslove each unit against all Elf symbols
+  printf("unresolveds: %d %d\n",un1,un2);
   if(un1)
-    un1 = unit_elf_resolve(pelf1);
+    un1 = elf_resolve_undefs(pelf1,resolver);
   if(un2)
-     un2 = unit_elf_resolve(pelf2);
+    un2 = elf_resolve_undefs(pelf2,resolver);
     
-  */
+  printf("unresolveds: %d %d\n",un1,un2);
+
+  
+  unit_ingest_elf2(pu1,pelf1);
+  unit_ingest_elf2(pu2,pelf2);	   
+  
+  sys_add(pu1);
+  sys_add(pu1);
+
+  //
+  
 }

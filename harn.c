@@ -50,7 +50,13 @@ void test2(char*name){
 
 void testab(char*name1,char*name2){
   sys_load_two(name1,name2);
-
+  fptr entry = (fptr)sys_symbol_address("funA");
+  printf("found %p\n",entry);
+  if(entry){
+    //    fptr entry = (fptr)(U64)(pu->dats[i].off);
+    U64 ret = (*entry)(5,0);
+    printf("returned: %ld\n",ret);
+  }
 }
 
 int main(int argc, char **argv){
@@ -64,7 +70,7 @@ int main(int argc, char **argv){
   // create bindings for libc
   sys_add(lib_make("libc.so.6","libc.txt"));
  
-  test2(argv[1]);
-  //testab("o/twoA.o","o/twoB.o");
+  //  test2(argv[1]);
+  testab("o/twoA.o","o/twoB.o");
   return 0;
 }

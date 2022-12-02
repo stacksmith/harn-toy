@@ -112,6 +112,27 @@ U32 elf_resolve_symbols(sElf* pelf,pfresolver lookup){
   }
   elf_process_symbols(pelf,proc);
   return nUndef;
+}
+// after initial resolution, if there are unresolved symbols,
+// try to resolve them against other elf files here...
+U32 elf_resolve_undefs(sElf* pelf,pfresolver lookup){
+  // resolve ELF symbols to actual addresses
+  U32 nUndef = 0;
+  void proc(Elf64_Sym* psym){
+    // only process NOTYPE symbols with 0 value as undefs
+    if((STT_NOTYPE == ELF64_ST_TYPE(psym->st_info)) &&
+       (!psym->st_value)) {
+      psym->st_value = (*lookup)(pelf->str_sym + psym->st_name);
+      // count undefined symbols
+      if(!psym->st_value) {
+	nUndef++;
+	printf("undef: %s\n",(pelf->str_sym + psym->st_name));
+      }
+    }
+    //          sym_dump(pelf,psym);
+  }
+  elf_process_symbols(pelf,proc);
+  return nUndef;
 } 
 void process_rel(sElf* pelf, Elf64_Rela* prel, Elf64_Shdr* shto){
   U64 base = shto->sh_addr; // base address of image being fixed-up
