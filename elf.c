@@ -6,6 +6,7 @@
 
 
 #include "global.h"
+#include "hexdump.h"
 #include "elf.h"
 #include "elfdump.h"
 
@@ -14,7 +15,12 @@ U64 global_symbol_address(char* name);
 /* -------------------------------------------------------------
    elf_load   Load an ELF object file (via mapping)
  -------------------------------------------------------------*/
-U32 elf_load(sElf* pelf,char* path){
+S64 elf_load(sElf* pelf,char* path){
+  S64 len = file_map((void**)&pelf->buf,path,PROT_READ|PROT_WRITE);
+  if(len<0) file_map_error_msg(len,path,1);
+
+  
+  /*
   int fd = open(path, O_RDONLY);
   if(fd<0) {
     printf("Error opening %s\n",path);
@@ -31,6 +37,8 @@ U32 elf_load(sElf* pelf,char* path){
     return 0;
   }
   close(fd);
+  */
+  printf("loaded elf %ld\n",len);  
   // section header array
   pelf->shdr = (Elf64_Shdr*)(pelf->buf + pelf->ehdr->e_shoff);
   pelf->shnum = pelf->ehdr->e_shnum;
@@ -46,6 +54,7 @@ U32 elf_load(sElf* pelf,char* path){
   pelf->symnum = pelf->sh_symtab->sh_size / pelf->sh_symtab->sh_entsize;
   // string table associated with symbols
   pelf->str_sym = pelf->buf + pelf->shdr[pelf->sh_symtab->sh_link].sh_offset;
+
   return len;
 }
 

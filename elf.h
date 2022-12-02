@@ -39,7 +39,7 @@ typedef struct sPiece {
 #define ELF_SYM_NAME(pelf,psym) ((pelf)->str_sym + (psym)->st_name)
 
 
-U32 elf_load(sElf* pelf, char* path);
+S64 elf_load(sElf* pelf, char* path);
 //void elf_syms(sElf* pelf);
 void elf_apply_rels(sElf* pelf);
 

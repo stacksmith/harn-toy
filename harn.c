@@ -73,6 +73,20 @@ void apply_rel(U8* code,U32 ri){
 sUnit* puLib;
 sUnit** srch_list;
 
+U64 global_symbol_address(char* name){
+  sUnit** ppu = srch_list;
+  U32 i = units_find_hash(ppu,string_hash(name));
+  if(!i){
+    printf("Undefined symbol '%s'\n",name);
+    exit(1);
+  }
+//      printf("Undefined %s found: %lx\n",name,i);
+  sUnit* pu = *ppu;
+  return pu->dats[i].off; // set elf sym value
+}
+
+
+
 typedef U64 (*fptr)(int,int);
 
 // global symbol-address resolver
@@ -110,7 +124,7 @@ int main(int argc, char **argv){
 
    
   // create bindings for libc
-  puLib = lib_make("libc.so.6","libc.txt","libc");
+  puLib = lib_make("libc.so.6","libc.txt");
   srch_list[0] = puLib;
   // load an elf file
   
