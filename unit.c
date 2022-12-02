@@ -8,7 +8,7 @@
 #include "global.h"
 #include "elf.h"
 #include "elfdump.h"
-#include "hexdump.h"
+#include "util.h"
 #include "seg.h"
 #include "unit.h"
 

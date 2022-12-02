@@ -8,7 +8,7 @@
 #include <string.h>
 #include <dlfcn.h>
 #include "global.h"
-#include "hexdump.h"
+#include "util.h"
 char* lbuf;
 U32 nlines;
 U16 oline[512];

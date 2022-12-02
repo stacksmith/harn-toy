@@ -6,7 +6,7 @@
 
 
 #include "global.h"
-#include "hexdump.h"
+#include "util.h"
 #include "elf.h"
 #include "elfdump.h"
 

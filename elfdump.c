@@ -13,7 +13,7 @@
 
 #include "global.h"
 #include "elf.h"
-#include "hexdump.h"
+#include "util.h"
 static char* str_SHT[]= {
   "NULL    ",            /* Section header table entry unused */
   "PROGBITS",/* Program data */
