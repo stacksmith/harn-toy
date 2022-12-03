@@ -28,8 +28,8 @@ void usym_dump(sUnit*pu, U32 i){
 
 void unit_dump(sUnit* pu){
   printf("-----\nUnit %s\n",pu->strings+1);
-  printf("code: %p, %04d  ",scode.base + pu->oCode,pu->szCode);
-  printf("data: %p, %04d  ",sdata.base + pu->oData,pu->szData);
+  printf("code: %p, $%04X  ",scode.base + pu->oCode,pu->szCode);
+  printf("data: %p, $%04X  ",sdata.base + pu->oData,pu->szData);
   printf("%d symbols, %d globals\n",pu->nSyms,pu->nGlobs);
   
   for(U32 i=1;i<pu->nSyms;i++){

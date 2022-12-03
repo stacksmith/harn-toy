@@ -31,7 +31,6 @@ int bar(int i, int j){
   //  int q = errno;
       puts(str1);
       puts(str2);
-
       carp = i;
-  return j;
+  return i+j;
 } 

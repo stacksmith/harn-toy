@@ -74,6 +74,10 @@ void testmult(U32 cnt,char**paths){
     U64 ret = (*entry)(5,0);
     printf("returned: %ld\n",ret);
   }
+
+  //  unit_dump(sys.units[1]);
+  //sys_dump();
+  //hd(0x40000000,8);
 }
 
 int main(int argc, char **argv){

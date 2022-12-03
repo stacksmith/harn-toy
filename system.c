@@ -17,9 +17,9 @@ extern sSystem sys;
 extern sSeg scode;
 extern sSeg sdata;
 
-typedef U32 (*pfsu_iter)(sUnit* pu);
+typedef U32 (*pfsys_iter)(sUnit* pu);
 
-void sys_units_iter(pfsu_iter proc){
+void sys_units_iter(pfsys_iter proc){
   sUnit** pulist = sys.units;
   sUnit* pu;
   while((pu=*pulist++)){
@@ -33,7 +33,8 @@ void sys_dump(){
   seg_dump(&sdata);
   printf("%d Units: ",sys.nUnits);
   U32 proc(sUnit* pu){
-    printf("%s ",unit_name(pu));
+    //printf("%s ",unit_name(pu));
+    unit_dump(pu);
     return 0;
   }
   sys_units_iter(&proc);

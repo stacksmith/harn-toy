@@ -22,8 +22,7 @@ CFLAGS=-Wall -Os \
 
 # YYY-symbolic -fno-inline  
 
-test1.o: test1.c
-	$(CC) -c $^ $(CFLAGS) 
+all: test2.o twoA.o twoB.o
 
 test2.o: test2.c
 	$(CC) -c $^ $(CFLAGS) 
